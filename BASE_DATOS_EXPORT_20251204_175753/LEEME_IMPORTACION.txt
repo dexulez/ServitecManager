@@ -1,0 +1,74 @@
+
+═══════════════════════════════════════════════════════════════
+  BACKUP DE BASE DE DATOS - SERVITECMANAGER
+═══════════════════════════════════════════════════════════════
+
+📅 Fecha de exportación: 2025-12-04 17:57:53
+📊 Versión: 1.1.0
+
+CONTENIDO DE ESTE BACKUP:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• SERVITEC.DB - Base de datos completa
+• INFO_BASE_DATOS.json - Estadísticas de la exportación
+• notificaciones.db.json - Notificaciones del sistema (si existe)
+• version.json - Información de versión (si existe)
+
+ESTADÍSTICAS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+   CLIENTES                  3 registros
+   ORDENES                   3 registros
+   INVENTARIO                0 registros
+   REPUESTOS               917 registros
+   SERVICIOS                 0 registros
+   PROVEEDORES               1 registros
+   TECNICOS                  0 registros
+   MARCAS                    0 registros
+   MODELOS                  44 registros
+
+
+INSTRUCCIONES PARA IMPORTAR EN OTRO COMPUTADOR:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+OPCIÓN 1: Importación Manual
+────────────────────────────
+
+1. En el otro computador, cierra ServitecManager si está abierto
+
+2. Navega a la carpeta de instalación:
+   C:\ServitecManager\servitec_manager
+   
+3. CREA UN BACKUP de tu base de datos actual (si existe):
+   - Copia SERVITEC.DB a un lugar seguro
+   
+4. Copia SERVITEC.DB de este backup a:
+   C:\ServitecManager\servitec_manager\SERVITEC.DB
+   
+5. (Opcional) Copia notificaciones.db.json a:
+   C:\ServitecManager\servitec_manager\notificaciones.db.json
+
+6. Abre ServitecManager normalmente
+
+
+OPCIÓN 2: Script Automático
+───────────────────────────
+
+1. Ejecuta: python importar_base_datos.py
+   (si existe en este backup)
+
+2. Sigue las instrucciones en pantalla
+
+
+⚠️  IMPORTANTE:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+• Este backup REEMPLAZARÁ completamente la base de datos destino
+• SIEMPRE crea un backup antes de importar
+• Verifica que ServitecManager esté cerrado antes de copiar
+• Si tienes problemas, contacta al soporte técnico
+
+
+═══════════════════════════════════════════════════════════════
+  Para más información: github.com/servitec
+═══════════════════════════════════════════════════════════════

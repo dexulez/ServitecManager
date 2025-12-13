@@ -1,0 +1,71 @@
+version: '3.8'
+
+services:
+  servitec-manager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - BUILDKIT_INLINE_CACHE=1
+    image: servitec-manager:latest
+    container_name: servitec-manager-app
+    
+    # Reinicio automático
+    restart: unless-stopped
+    
+    # Variables de entorno
+    environment:
+      - TZ=America/Mexico_City
+      - PYTHONUNBUFFERED=1
+      - DISPLAY=host.docker.internal:0.0
+    
+    # Volúmenes para persistencia de datos
+    volumes:
+      # Base de datos
+      - ./SERVITEC.DB:/app/SERVITEC.DB
+      # Backups
+      - ./backups:/app/backups
+      # Órdenes generadas
+      - ./ordenes:/app/ordenes
+      - ./servitec_manager/ordenes:/app/servitec_manager/ordenes
+      # Reportes
+      - ./servitec_manager/reports:/app/servitec_manager/reports
+      # Assets (logos, etc)
+      - ./servitec_manager/assets:/app/servitec_manager/assets
+    
+    # Red
+    networks:
+      - servitec-network
+    
+    # Límites de recursos
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sqlite3; conn = sqlite3.connect('SERVITEC.DB'); conn.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    
+    # Etiquetas para organización
+    labels:
+      - "com.servitec.app=manager"
+      - "com.servitec.environment=production"
+
+networks:
+  servitec-network:
+    driver: bridge
+    name: servitec-network
+
+# Volúmenes nombrados (opcional, para backups automáticos)
+volumes:
+  servitec-backups:
+    name: servitec-backups

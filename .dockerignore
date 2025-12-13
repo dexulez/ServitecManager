@@ -1,0 +1,96 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.venv/
+venv/
+ENV/
+env/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Docker
+.dockerignore
+Dockerfile*
+docker-compose*.yml
+
+# ServitecManager specific - exclude non-essential files
+servitec_manager/build/
+servitec_manager/backups/
+servitec_manager/ordenes/
+servitec_manager/reports/
+servitec_manager/updates/
+*.spec
+*.bat
+limpiar*
+
+# Documentación
+*.md
+README*
+LICENSE
+docs/
+
+# Archivos temporales
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Build artifacts
+build/
+dist/
+*.spec
+
+# Windows
+Thumbs.db
+desktop.ini
+
+# Backups (se montan como volumen)
+backups/
+
+# Reportes (se montan como volumen)
+servitec_manager/reports/
+reports/
+
+# Scripts de desarrollo
+limpiar*.ps1
+limpiar*.bat
+crear_instalador.bat
+PREPARAR_PENDRIVE.bat
+
+# Archivos de prueba
+test_*.py
+*_test.py
+tests/
+
+# Datos de prueba
+LEEME_DATOS_PRUEBA.md
+DATOS_PRUEBA_README.md
+setup_test_data.py
+cargar_datos_prueba.py
+
+# Configuración local
+.env.local
+.env.*.local
+config.local.json

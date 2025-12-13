@@ -1,0 +1,12 @@
+customtkinter
+reportlab
+matplotlib
+tkcalendar
+pillow
+pyinstaller
+pandas
+openpyxl
+pdfplumber
+pywhatkit
+twilio
+python-dotenv

@@ -1,0 +1,20 @@
+# ServitecManager API Server Requirements
+# Solo las dependencias necesarias para el servidor
+
+# Framework API
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+pydantic==2.10.3
+python-multipart==0.0.20
+
+# WebSocket
+websocket-client==1.8.0
+websockets==14.1
+
+# HTTP Client
+requests==2.32.3
+httpx==0.28.1
+
+# Utilidades
+python-dateutil==2.9.0
+pytz==2024.2

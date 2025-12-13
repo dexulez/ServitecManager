@@ -1,0 +1,51 @@
+version: '3.8'
+
+services:
+  # Servidor API centralizado
+  api-server:
+    build:
+      context: .
+      dockerfile: Dockerfile.server
+    image: servitec-api-server:latest
+    container_name: servitec-api-server
+    restart: unless-stopped
+    
+    ports:
+      - "8000:8000"  # Puerto API REST
+    
+    environment:
+      - TZ=America/Mexico_City
+      - PYTHONUNBUFFERED=1
+      - PORT=8000
+      - DB_PATH=/app/SERVITEC.DB
+    
+    volumes:
+      # Base de datos compartida
+      - ./SERVITEC.DB:/app/SERVITEC.DB
+      # Backups automáticos
+      - ./backups:/app/backups
+      # Datos persistentes
+      - ./data:/app/data
+    
+    networks:
+      - servitec-network
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 128M
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8000/', timeout=2)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+networks:
+  servitec-network:
+    driver: bridge

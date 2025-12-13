@@ -1,0 +1,110 @@
+# === Python ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+*.egg
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# === Entornos Virtuales ===
+venv/
+.venv/
+env/
+ENV/
+.conda/
+
+# === Base de Datos ===
+# Mantener solo SERVITEC.DB
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+# Excepción: mantener SERVITEC.DB
+!SERVITEC.DB
+
+# === Caché ===
+.cache/
+*.cache
+servitec_manager/.cache/
+
+# === Backups ===
+backups/
+*.bak
+*.backup
+
+# === Build/Distribución ===
+build/
+dist/
+*.spec
+
+# === IDE y Editores ===
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+
+# === Sistema Operativo ===
+.DS_Store
+Thumbs.db
+desktop.ini
+*.lnk
+
+# === Logs ===
+*.log
+logs/
+
+# === Docker ===
+# Mantener archivos base, ignorar sobrescritos
+docker-compose.override.yml
+.env
+.env.local
+.env.*.local
+
+# === Temporal ===
+*.tmp
+*.temp
+*.old
+
+# === Reportes/Órdenes generados ===
+# (Comentar si quieres versionar algunos)
+ordenes/*.pdf
+servitec_manager/ordenes/*.pdf
+servitec_manager/reports/**/*.pdf
+
+# === Instaladores ===
+*.exe
+*.msi
+*.bat
+# Excepciones
+!EJECUTAR_SERVITECMANAGER.bat
+
+# === Datos de Prueba ===
+*_test_data.py
+test_*.py
+*_test.py
+LEEME_DATOS_PRUEBA.md
+DATOS_PRUEBA_README.md
+
+# Archivos temporales
+*.tmp
+*.temp
+~*
+
+# Órdenes y reportes generados
+ordenes/
+reports/
+
+# Archivos de instalador
+*.msi
+*.exe
+*.spec
+
+# Datos de prueba
+notificaciones.db.json

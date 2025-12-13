@@ -1,0 +1,40 @@
+# Dockerfile para ServitecManager API Server
+# Servidor centralizado para múltiples clientes
+
+FROM python:3.13-slim
+
+LABEL maintainer="ServitecManager API" \
+      version="1.0.0" \
+      description="API REST para ServitecManager multi-usuario"
+
+# Variables de entorno
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PORT=8000
+
+# Usuario no-root para seguridad
+RUN useradd -m -u 1000 servitec && \
+    mkdir -p /app /app/data && \
+    chown -R servitec:servitec /app
+
+WORKDIR /app
+
+# Instalar dependencias
+COPY requirements-server.txt .
+RUN pip install --no-cache-dir -r requirements-server.txt
+
+# Copiar código del servidor
+COPY --chown=servitec:servitec servitec_manager/api_server.py ./
+COPY --chown=servitec:servitec SERVITEC.DB ./
+
+USER servitec
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python -c "import requests; requests.get('http://localhost:8000/', timeout=2)" || exit 1
+
+EXPOSE 8000
+
+# Comando para iniciar el servidor
+CMD ["uvicorn", "api_server:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "4"]

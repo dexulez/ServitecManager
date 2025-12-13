@@ -1,0 +1,47 @@
+# ServitecManager Requirements
+# Generado: 2025-12-09
+
+# Framework GUI
+customtkinter==5.2.2
+Pillow==10.4.0
+tkcalendar==1.6.1
+
+# Base de datos y ORM
+# (usando sqlite3 incluido en Python)
+
+# Reportes y PDFs
+reportlab==4.2.5
+pdfplumber==0.11.4
+pdfminer.six==20231228
+
+# Hojas de cálculo Excel
+openpyxl==3.1.5
+
+# Gráficos y visualización
+matplotlib==3.9.2
+
+# Utilidades
+python-dateutil==2.9.0
+pytz==2024.2
+
+# Análisis de datos
+pandas==2.2.3
+numpy==2.1.3
+
+# Exportación/Importación
+et-xmlfile==2.0.0
+
+# Detección de tema del sistema
+darkdetect==0.8.0
+
+# Actualización automática
+packaging==24.2
+
+# Utilidades adicionales
+colorama==0.4.6
+
+# API Server (multi-usuario)
+fastapi==0.115.5
+uvicorn[standard]==0.32.1
+websocket-client==1.8.0
+requests==2.32.3

@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  servitec-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    container_name: servitec-api
+    restart: unless-stopped
+    
+    ports:
+      - "8000:8000"
+    
+    volumes:
+      # Base de datos persistente
+      - ./SERVITEC.DB:/app/SERVITEC.DB
+      # Backups
+      - servitec-backups:/app/backups
+      # Datos persistentes
+      - servitec-data:/app/data
+    
+    environment:
+      - PYTHONUNBUFFERED=1
+      - TZ=America/Mexico_City
+    
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 512M
+        reservations:
+          cpus: '0.5'
+          memory: 256M
+    
+    networks:
+      - servitec-network
+
+volumes:
+  servitec-backups:
+    driver: local
+  servitec-data:
+    driver: local
+
+networks:
+  servitec-network:
+    driver: bridge

@@ -1,0 +1,18 @@
+{
+    "version": "1.1.0",
+    "fecha_actualizacion": "2025-12-04",
+    "cambios": [
+        "✅ Sistema de notificaciones al cliente por WhatsApp y Email",
+        "✅ Notificación automática al cambiar estado en Taller y Dashboard",
+        "✅ Campo de notas adicionales en notificaciones",
+        "✅ Sistema de pedidos a proveedores completamente integrado",
+        "✅ Registro automático de compras al recibir mercancía",
+        "✅ Campo de notas en recepción de pedidos",
+        "✅ Botón de búsqueda de items en agregar pedidos",
+        "✅ Actualización automática de datos al cambiar pestañas",
+        "✅ Menú reorganizado con submenús colapsables exclusivos",
+        "✅ Corrección de estados: ESPERA DE REPUESTO",
+        "✅ Actualización inmediata de badges de estado en Dashboard",
+        "✅ Mejoras visuales en sidebar y fuentes de submenús"
+    ]
+}
