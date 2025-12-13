@@ -42,6 +42,9 @@ build/
 dist/
 *.spec
 
+# === Versión Portable ===
+ServitecManager_Portable/
+
 # === IDE y Editores ===
 .vscode/
 .idea/
@@ -84,6 +87,8 @@ servitec_manager/reports/**/*.pdf
 *.bat
 # Excepciones
 !EJECUTAR_SERVITECMANAGER.bat
+!instalar_servitec.bat
+!actualizar_servitec.bat
 
 # === Datos de Prueba ===
 *_test_data.py
