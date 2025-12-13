@@ -11,7 +11,7 @@ echo.
 :: ========================================
 :: CONFIGURACIÓN - MODIFICA ESTA URL
 :: ========================================
-set REPO_URL=https://github.com/TU_USUARIO/ServitecManager.git
+set REPO_URL=https://github.com/dexulez/ServitecManager.git
 set INSTALL_DIR=%USERPROFILE%\Documents\ServitecManager
 set PYTHON_MIN_VERSION=3.13
 
