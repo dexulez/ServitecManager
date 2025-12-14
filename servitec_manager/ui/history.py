@@ -90,16 +90,16 @@ class HistoryFrame(ctk.CTkFrame):
             if filter_txt and (filter_txt not in str(row[0]) and filter_txt not in str(row[2] or "") and filter_txt not in str(row[3])): continue
 
             f = ctk.CTkFrame(self.scroll_orders, **Theme.get_card_style()); f.pack(fill="x", pady=2)
-            ctk.CTkLabel(f, text=f"#{row[0]}", width=50, text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=3)
-            ctk.CTkLabel(f, text=row[1][:10], width=70, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
-            ctk.CTkLabel(f, text=row[2] or "---", width=200, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
-            ctk.CTkLabel(f, text=row[3], width=170, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
-            ctk.CTkLabel(f, text=row[4] or "---", width=90, text_color=Theme.TEXT_SECONDARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=f"#{row[0]}", width=50, text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[1][:10], width=70, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[2] or "---", width=200, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[3], width=170, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[4] or "---", width=90, text_color=Theme.TEXT_SECONDARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
             
             # Observaciones (completas, multilinea si es necesario)
             obs_raw = row[7] or "-"
             obs_clean = obs_raw.replace("FALLA: |", "").replace("FALLA:", "").replace("|", "").strip()
-            ctk.CTkLabel(f, text=obs_clean, width=390, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="nw", wraplength=380, justify="left").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=obs_clean, width=390, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="nw", wraplength=380, justify="left").pack(side="left", padx=3)
 
             # Estado (ComboBox editable)
             estado_var = ctk.StringVar(value=row[5])
@@ -159,10 +159,10 @@ class HistoryFrame(ctk.CTkFrame):
             
             # Fecha de entrega
             fecha_ent = row[8][:10] if row[8] else "-"
-            ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
 
             total = f"${int(row[9]):,}".replace(",", ".") if row[9] else "$0"
-            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
 
             # Botón ver
             ctk.CTkButton(f, text="👁️", width=80, height=30, **Theme.get_button_style("secondary"), command=lambda oid=row[0]: self.show_order_detail(oid)).pack(side="left", padx=3)
