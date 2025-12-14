@@ -12,7 +12,7 @@ echo.
 :: CONFIGURACIÓN
 :: ========================================
 set INSTALL_DIR=%USERPROFILE%\Documents\ServitecManager
-set VENV_DIR=%INSTALL_DIR%\venv
+set VENV_DIR=%INSTALL_DIR%\.venv
 
 echo [1/5] Verificando instalación existente...
 echo.
