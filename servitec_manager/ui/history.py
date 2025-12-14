@@ -68,8 +68,8 @@ class HistoryFrame(ctk.CTkFrame):
 
         # Tabla Headers
         h = ctk.CTkFrame(self.tab_orders, fg_color=Theme.PRIMARY, height=40, corner_radius=Theme.RADIUS_SMALL); h.pack(fill="x", pady=5)
-        cols = [("ID", 90), ("FECHA", 110), ("CLIENTE", 170), ("EQUIPO", 170), ("TÉCNICO", 110), ("OBSERVACIONES", 390), ("ESTADO", 120), ("CONDICIÓN", 130), ("F.ENTREGA", 100), ("TOTAL", 80), ("VER", 80)]
-        for c, w in cols: ctk.CTkLabel(h, text=c, width=w, font=(Theme.FONT_FAMILY, 12, "bold"), text_color=Theme.WHITE, anchor="center").pack(side="left", padx=1)
+        cols = [("ID", 50), ("FECHA", 70), ("CLIENTE", 200), ("EQUIPO", 170), ("TÉCNICO", 90), ("OBSERVACIONES", 390), ("ESTADO", 120), ("CONDICIÓN", 130), ("F.ENTREGA", 100), ("TOTAL", 80), ("VER", 80)]
+        for c, w in cols: ctk.CTkLabel(h, text=c, width=w, font=(Theme.FONT_FAMILY, 11, "bold"), text_color=Theme.WHITE, anchor="center").pack(side="left", padx=3)
         
         self.scroll_orders = ctk.CTkScrollableFrame(self.tab_orders, fg_color=Theme.BACKGROUND_LIGHT, corner_radius=Theme.RADIUS_MEDIUM); self.scroll_orders.pack(fill="both", expand=True)
         self.load_orders()
@@ -90,27 +90,26 @@ class HistoryFrame(ctk.CTkFrame):
             if filter_txt and (filter_txt not in str(row[0]) and filter_txt not in str(row[2] or "") and filter_txt not in str(row[3])): continue
 
             f = ctk.CTkFrame(self.scroll_orders, **Theme.get_card_style()); f.pack(fill="x", pady=2)
-            ctk.CTkLabel(f, text=f"#{row[0]}", width=90, text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=1)
-            ctk.CTkLabel(f, text=row[1][:10], width=110, text_color=Theme.TEXT_PRIMARY, anchor="w").pack(side="left", padx=1)
-            ctk.CTkLabel(f, text=row[2] or "---", width=170, text_color=Theme.TEXT_PRIMARY, anchor="w").pack(side="left", padx=1)
-            ctk.CTkLabel(f, text=row[3], width=170, text_color=Theme.TEXT_PRIMARY, anchor="w").pack(side="left", padx=1)
-            ctk.CTkLabel(f, text=row[4] or "---", width=110, text_color=Theme.TEXT_SECONDARY, anchor="w").pack(side="left", padx=1)
+            ctk.CTkLabel(f, text=f"#{row[0]}", width=50, text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[1][:10], width=70, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[2] or "---", width=200, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[3], width=170, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
+            ctk.CTkLabel(f, text=row[4] or "---", width=90, text_color=Theme.TEXT_SECONDARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
             
-            # Observaciones (truncadas y limpias)
+            # Observaciones (completas, multilinea si es necesario)
             obs_raw = row[7] or "-"
             obs_clean = obs_raw.replace("FALLA: |", "").replace("FALLA:", "").replace("|", "").strip()
-            obs_text = obs_clean[:60] + "..." if len(obs_clean) > 60 else obs_clean
-            ctk.CTkLabel(f, text=obs_text, width=390, text_color=Theme.TEXT_PRIMARY, anchor="w").pack(side="left", padx=1)
+            ctk.CTkLabel(f, text=obs_clean, width=390, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="nw", wraplength=380, justify="left").pack(side="left", padx=3)
 
             # Estado (ComboBox editable)
             estado_var = ctk.StringVar(value=row[5])
             estado_cb = ctk.CTkComboBox(f, values=ESTADOS, variable=estado_var, width=120)
-            estado_cb.pack(side="left", padx=1, pady=4)
+            estado_cb.pack(side="left", padx=3, pady=4)
 
             # Condición (ComboBox dependiente)
             condicion_var = ctk.StringVar(value=row[6] or "")
             condicion_cb = ctk.CTkComboBox(f, values=CONDICIONES, variable=condicion_var, width=130)
-            condicion_cb.pack(side="left", padx=1, pady=4)
+            condicion_cb.pack(side="left", padx=3, pady=4)
 
             # Inicializar estado de condición
             def update_condicion_field(ev=None, oid=oid, estado_var=estado_var, condicion_var=condicion_var, condicion_cb=condicion_cb):
@@ -160,13 +159,13 @@ class HistoryFrame(ctk.CTkFrame):
             
             # Fecha de entrega
             fecha_ent = row[8][:10] if row[8] else "-"
-            ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, anchor="w").pack(side="left", padx=1)
+            ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), anchor="w").pack(side="left", padx=3)
 
             total = f"${int(row[9]):,}".replace(",", ".") if row[9] else "$0"
-            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=1)
+            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL, "bold"), anchor="w").pack(side="left", padx=3)
 
             # Botón ver
-            ctk.CTkButton(f, text="👁️", width=80, height=30, **Theme.get_button_style("secondary"), command=lambda oid=row[0]: self.show_order_detail(oid)).pack(side="left", padx=1)
+            ctk.CTkButton(f, text="👁️", width=80, height=30, **Theme.get_button_style("secondary"), command=lambda oid=row[0]: self.show_order_detail(oid)).pack(side="left", padx=3)
 
     def show_order_detail(self, oid):
         # Popup con detalles
