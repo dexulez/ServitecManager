@@ -226,21 +226,21 @@ class PDFGeneratorV2:
         c.setFillColor(self.COLOR_TEXTO)
         c.drawString(cliente_x + 3*mm, y_contenido, "CLIENTE:")
         c.setFont("Helvetica", 10)
-        cliente_nombre = str(orden_data[16] or "").upper()[:30]
+        cliente_nombre = str(orden_data[17] or "").upper()[:30]
         c.drawString(cliente_x + 25*mm, y_contenido, cliente_nombre)
         
         y_contenido -= 3.35*mm
         c.setFont("Helvetica-Bold", 10)
         c.drawString(cliente_x + 3*mm, y_contenido, "RUT:")
         c.setFont("Helvetica", 10)
-        cliente_rut = str(orden_data[15] or "")
+        cliente_rut = str(orden_data[16] or "")
         c.drawString(cliente_x + 25*mm, y_contenido, cliente_rut)
         
         y_contenido -= 3.35*mm
         c.setFont("Helvetica-Bold", 10)
         c.drawString(cliente_x + 3*mm, y_contenido, "TELÉFONO:")
         c.setFont("Helvetica", 10)
-        cliente_tel = str(orden_data[17] or "")
+        cliente_tel = str(orden_data[18] or "")
         c.drawString(cliente_x + 25*mm, y_contenido, cliente_tel)
         
         # COLUMNA DERECHA: INFORMACIÓN DEL EQUIPO
