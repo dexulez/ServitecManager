@@ -356,9 +356,9 @@ class PDFGeneratorV2:
         c.rect(financiero_x, financiero_y - financiero_height + 8*mm, financiero_width, financiero_height - 8*mm, fill=0, stroke=1)
         
         # Calcular valores financieros
-        total = orden_data[12]
-        descuento = orden_data[13] if len(orden_data) > 13 else 0
-        abono = orden_data[14] if len(orden_data) > 14 else 0
+        total = float(orden_data[12] or 0)
+        descuento = float(orden_data[13] or 0) if len(orden_data) > 13 else 0
+        abono = float(orden_data[14] or 0) if len(orden_data) > 14 else 0
         
         # Calcular IVA (19%) y subtotal
         subtotal = total / 1.19  # Asumiendo que el total incluye IVA
