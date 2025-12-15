@@ -29,9 +29,35 @@ def LIMPIAR_CACHE():
     except Exception as e:
         print(f"⚠️ Error limpiando cache: {e}")
 
+def EJECUTAR_MIGRACIONES():
+    """Ejecuta migraciones de base de datos automáticamente"""
+    import sqlite3
+    try:
+        conn = sqlite3.connect('SERVITEC.DB')
+        cursor = conn.cursor()
+        
+        # Verificar si existe la columna descuento
+        cursor.execute("PRAGMA table_info(ordenes)")
+        columnas = cursor.fetchall()
+        columnas_nombres = [col[1] for col in columnas]
+        
+        if 'descuento' not in columnas_nombres:
+            print("🔧 Aplicando migración: agregando columna 'descuento'...")
+            cursor.execute("ALTER TABLE ordenes ADD COLUMN descuento INTEGER DEFAULT 0")
+            conn.commit()
+            print("✅ Migración completada: columna 'descuento' agregada")
+        
+        conn.close()
+    except Exception as e:
+        print(f"⚠️ Error en migración: {e}")
+
 def PRINCIPAL():
     # --- LIMPIEZA AUTOMÁTICA DE CACHE ---
     LIMPIAR_CACHE()
+    
+    # --- MIGRACIONES AUTOMÁTICAS ---
+    EJECUTAR_MIGRACIONES()
+    
     # --- CONFIGURACIÓN VISUAL ---
     ctk.set_appearance_mode("light") 
     ctk.set_default_color_theme("blue") 
