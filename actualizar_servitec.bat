@@ -14,7 +14,7 @@ echo.
 set INSTALL_DIR=%USERPROFILE%\Documents\ServitecManager
 set VENV_DIR=%INSTALL_DIR%\.venv
 
-echo [1/5] Verificando instalación existente...
+echo [1/6] Verificando instalación existente...
 echo.
 
 :: ========================================
@@ -45,7 +45,7 @@ if %errorlevel% neq 0 (
 :: ========================================
 :: Verificar Git
 :: ========================================
-echo [2/5] Verificando Git...
+echo [2/6] Verificando Git...
 git --version >nul 2>&1
 if %errorlevel% neq 0 (
     echo ❌ ERROR: Git no está instalado
@@ -59,7 +59,7 @@ echo.
 :: ========================================
 :: Descargar actualizaciones
 :: ========================================
-echo [3/5] Descargando últimas actualizaciones desde GitHub...
+echo [3/6] Descargando últimas actualizaciones desde GitHub...
 echo.
 
 git fetch origin
@@ -88,7 +88,7 @@ echo.
 :: ========================================
 :: Activar entorno virtual
 :: ========================================
-echo [4/5] Activando entorno virtual...
+echo [4/6] Activando entorno virtual...
 if not exist "%VENV_DIR%\Scripts\activate.bat" (
     echo ❌ ERROR: No se encontró el entorno virtual
     echo 💡 Reinstala usando instalar_servitec.bat
@@ -103,7 +103,7 @@ echo.
 :: ========================================
 :: Actualizar dependencias
 :: ========================================
-echo [5/5] Actualizando dependencias de Python...
+echo [5/6] Actualizando dependencias de Python...
 echo.
 
 if exist "%INSTALL_DIR%\servitec_manager\requirements.txt" (
@@ -119,6 +119,22 @@ if exist "%INSTALL_DIR%\servitec_manager\requirements.txt" (
 ) else (
     echo ⚠️  No se encontró requirements.txt, omitiendo actualización de dependencias
 )
+echo.
+
+:: ========================================
+:: Ejecutar migraciones de base de datos
+:: ========================================
+echo [6/6] Aplicando migraciones de base de datos...
+echo.
+
+cd "%INSTALL_DIR%\servitec_manager"
+if exist "migrar_descuento.py" (
+    python migrar_descuento.py
+    echo.
+) else (
+    echo ⚠️  No se encontró script de migración
+)
+cd "%INSTALL_DIR%"
 echo.
 
 :: ========================================
