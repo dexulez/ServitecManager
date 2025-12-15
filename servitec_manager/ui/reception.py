@@ -26,7 +26,7 @@ class ReceptionFrame(ctk.CTkFrame):
         self.var_search = ctk.StringVar(); self.var_rut = ctk.StringVar(); self.var_name = ctk.StringVar()
         self.var_tel = ctk.StringVar(); self.var_email = ctk.StringVar(); self.var_model = ctk.StringVar()
         self.var_serial = ctk.StringVar(); self.var_fault = ctk.StringVar()
-        self.var_price = ctk.StringVar(); self.var_deposit = ctk.StringVar()
+        self.var_price = ctk.StringVar(); self.var_discount = ctk.StringVar(); self.var_deposit = ctk.StringVar()
         self.var_part_search = ctk.StringVar()
         self.var_service = ctk.StringVar(); self.var_part = ctk.StringVar()
         self.var_delivery_date = None  # Se inicializará con DateEntry 
@@ -71,6 +71,7 @@ class ReceptionFrame(ctk.CTkFrame):
 
     def setup_money_trace(self):
         self.var_price.trace("w", lambda *args: self.format_live_money(self.var_price))
+        self.var_discount.trace("w", lambda *args: self.format_live_money(self.var_discount))
         self.var_deposit.trace("w", lambda *args: self.format_live_money(self.var_deposit))
 
     def force_uppercase(self, var):
@@ -303,10 +304,12 @@ class ReceptionFrame(ctk.CTkFrame):
         ctk.CTkSwitch(acc_frame, text="RIESGOSO", variable=self.var_risky, progress_color="red").pack(side="right", padx=5)
 
         money_frame = ctk.CTkFrame(right_panel, fg_color="gray20"); money_frame.pack(fill="x", padx=15, pady=10)
-        ctk.CTkLabel(money_frame, text="PRESUPUESTO TOTAL ($) *:", text_color="white", font=("Arial", 14, "bold")).pack(side="left", padx=10, pady=10)
-        self.entry_price = ctk.CTkEntry(money_frame, textvariable=self.var_price, width=140, font=("Arial", 14, "bold")); self.entry_price.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(money_frame, text="PRESUPUESTO ($) *:", text_color="white", font=("Arial", 14, "bold")).pack(side="left", padx=10, pady=10)
+        self.entry_price = ctk.CTkEntry(money_frame, textvariable=self.var_price, width=120, font=("Arial", 14, "bold")); self.entry_price.pack(side="left", padx=5, pady=10)
+        ctk.CTkLabel(money_frame, text="DESCUENTO ($):", text_color="white", font=("Arial", 14, "bold")).pack(side="left", padx=10, pady=10)
+        self.entry_discount = ctk.CTkEntry(money_frame, textvariable=self.var_discount, width=120, font=("Arial", 14, "bold")); self.entry_discount.pack(side="left", padx=5, pady=10)
         ctk.CTkLabel(money_frame, text="ABONO ($):", text_color="white", font=("Arial", 14, "bold")).pack(side="left", padx=10, pady=10)
-        self.entry_deposit = ctk.CTkEntry(money_frame, textvariable=self.var_deposit, width=140, font=("Arial", 14, "bold")); self.entry_deposit.pack(side="left", padx=5, pady=10)
+        self.entry_deposit = ctk.CTkEntry(money_frame, textvariable=self.var_deposit, width=120, font=("Arial", 14, "bold")); self.entry_deposit.pack(side="left", padx=5, pady=10)
 
         buttons_frame = ctk.CTkFrame(right_panel, fg_color="transparent")
         buttons_frame.pack(fill="x", padx=20, pady=15)
@@ -1709,6 +1712,8 @@ class ReceptionFrame(ctk.CTkFrame):
         brand = self.combo_brand.get(); model = self.var_model.get(); fail = self.var_fault.get()
         try: pre = self.clean_money(self.var_price.get())
         except: pre = 0
+        try: desc = self.clean_money(self.var_discount.get())
+        except: desc = 0
         if not brand or not model: messagebox.showwarning("FALTAN DATOS", "Falta Marca/Modelo"); return
         # Campo de falla eliminado - ahora es opcional
         if pre <= 0: messagebox.showwarning("FALTAN DATOS", "El PRESUPUESTO TOTAL no puede ser cero."); return
@@ -1741,7 +1746,7 @@ class ReceptionFrame(ctk.CTkFrame):
                 success = self.logic.orders.update_order(
                     self.editing_order_id, tid, self.combo_type.get(), brand, model, 
                     self.var_serial.get(), fail, self.text_obs.get("0.0", "end").strip(), 
-                    acc, self.var_risky.get(), pre, abo, delivery_date
+                    acc, self.var_risky.get(), pre, desc, abo, delivery_date
                 )
                 if success:
                     # Crear pedido automáticamente si hay repuesto seleccionado
@@ -1814,7 +1819,7 @@ class ReceptionFrame(ctk.CTkFrame):
                     messagebox.showerror("ERROR", "No se pudo actualizar la orden. Puede que ya haya sido cobrada o entregada.")
             else:
                 # Crear nueva orden
-                oid = self.logic.orders.create_order(cdata[0], tid, self.combo_type.get(), brand, model, self.var_serial.get(), fail, self.text_obs.get("0.0", "end").strip(), acc, self.var_risky.get(), pre, abo, delivery_date)
+                oid = self.logic.orders.create_order(cdata[0], tid, self.combo_type.get(), brand, model, self.var_serial.get(), fail, self.text_obs.get("0.0", "end").strip(), acc, self.var_risky.get(), pre, desc, abo, delivery_date)
                 if oid:
                     # Crear pedido automáticamente si hay repuesto seleccionado
                     repuesto_seleccionado = self.var_part.get()

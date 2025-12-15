@@ -1042,11 +1042,11 @@ class GESTOR_ORDENES:
     def VERIFICAR_GARANTÍA(self, serie):
         if not serie: return []
         return self.bd.OBTENER_TODOS("SELECT o.*, c.nombre FROM ordenes o LEFT JOIN clientes c ON o.cliente_id = c.id WHERE o.serie = ? ORDER BY o.id DESC LIMIT 5", (serie.upper(),))
-    def CREAR_ORDEN(self, cid, tid, tipo, marca, modelo, serie, falla, obs, accesorios, riesgoso, presupuesto, abono, fecha_entrega=None):
+    def CREAR_ORDEN(self, cid, tid, tipo, marca, modelo, serie, falla, obs, accesorios, riesgoso, presupuesto, descuento, abono, fecha_entrega=None):
         if isinstance(accesorios, list): accesorios_str = ", ".join(accesorios)
         else: accesorios_str = ", ".join([k for k, v in accesorios.items() if v])
         obs_completa = f"FALLA: {falla.upper()} | {obs.upper()}"
-        return self.bd.EJECUTAR_CONSULTA("INSERT INTO ordenes (cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie, observacion, estado, accesorios, riesgoso, presupuesto, abono, fecha_entrega) VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, ?)", (cid, tid, tipo.upper(), marca.upper(), modelo.upper(), serie.upper(), obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, abono, fecha_entrega))
+        return self.bd.EJECUTAR_CONSULTA("INSERT INTO ordenes (cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie, observacion, estado, accesorios, riesgoso, presupuesto, descuento, abono, fecha_entrega) VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, ?, ?)", (cid, tid, tipo.upper(), marca.upper(), modelo.upper(), serie.upper(), obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, descuento, abono, fecha_entrega))
     def ACTUALIZAR_ESTADO(self, orden_id, estado, condicion=None):
         if condicion is not None:
             return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET estado = ?, condicion = ? WHERE id = ?", (estado, condicion, orden_id))
@@ -1065,7 +1065,7 @@ class GESTOR_ORDENES:
         if orden[0] == "ENTREGADO": return False
         return True
     
-    def ACTUALIZAR_ORDEN(self, orden_id, tid, tipo, marca, modelo, serie, falla, obs, accesorios, riesgoso, presupuesto, abono, fecha_entrega=None):
+    def ACTUALIZAR_ORDEN(self, orden_id, tid, tipo, marca, modelo, serie, falla, obs, accesorios, riesgoso, presupuesto, descuento, abono, fecha_entrega=None):
         """Actualiza una orden existente si aún no ha sido cobrada o entregada"""
         if not self.PUEDE_EDITAR_ORDEN(orden_id): return False
         if isinstance(accesorios, list): accesorios_str = ", ".join(accesorios)
@@ -1073,10 +1073,10 @@ class GESTOR_ORDENES:
         obs_completa = f"FALLA: {falla.upper()} | {obs.upper()}"
         self.bd.EJECUTAR_CONSULTA(
             """UPDATE ordenes SET tecnico_id=?, equipo=?, marca=?, modelo=?, serie=?, 
-               observacion=?, accesorios=?, riesgoso=?, presupuesto=?, abono=?, fecha_entrega=? 
+               observacion=?, accesorios=?, riesgoso=?, presupuesto=?, descuento=?, abono=?, fecha_entrega=? 
                WHERE id=?""",
             (tid, tipo.upper(), marca.upper(), modelo.upper(), serie.upper(), 
-             obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, abono, fecha_entrega, orden_id)
+             obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, descuento, abono, fecha_entrega, orden_id)
         )
         return True  # Si llegamos aquí, la actualización fue exitosa
     

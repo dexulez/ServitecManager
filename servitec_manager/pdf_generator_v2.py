@@ -271,8 +271,8 @@ class PDFGeneratorV2:
         c.setFont("Helvetica-Bold", 10)
         c.drawString(equipo_x + 3*mm, y_contenido, "FECHA ENTREGA:")
         c.setFont("Helvetica", 10)
-        # La fecha de entrega está después de abono (índice 13), antes de los datos del cliente
-        fecha_entrega = str(orden_data[14] or "")[:10] if len(orden_data) > 14 and orden_data[14] else "Sin definir"
+        # La fecha de entrega está después de descuento y abono (índice 15)
+        fecha_entrega = str(orden_data[15] or "")[:10] if len(orden_data) > 15 and orden_data[15] else "Sin definir"
         c.drawString(equipo_x + 35*mm, y_contenido, fecha_entrega)
         
         # ==================== SECCIÓN 3: ESTADO Y ACCESORIOS ====================
@@ -357,13 +357,13 @@ class PDFGeneratorV2:
         
         # Calcular valores financieros
         total = orden_data[12]
-        abono = orden_data[13]
+        descuento = orden_data[13] if len(orden_data) > 13 else 0
+        abono = orden_data[14] if len(orden_data) > 14 else 0
         
         # Calcular IVA (19%) y subtotal
         subtotal = total / 1.19  # Asumiendo que el total incluye IVA
         iva = total - subtotal
         saldo = total - abono
-        descuento = 0  # Por ahora en 0, se puede agregar campo en BD
         
         # Dibujar valores DENTRO del borde (bajar texto 8mm total)
         y_fin = financiero_y - 4*mm
