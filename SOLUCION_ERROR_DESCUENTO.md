@@ -1,15 +1,34 @@
-# 🔧 SOLUCIÓN: Error "table ordenes has no column named descuento"
+# 🔧 SOLUCIÓN: Errores de Actualización en ServitecManager
 
-## Problema
-Al actualizar ServitecManager en otro computador, aparece el error:
+## Problema 1: Error de Git "local changes would be overwritten"
+```
+error: Your local changes to the following files would be overwritten by merge:
+        actualizar_servitec.bat
+```
+
+### Solución INMEDIATA:
+1. Descarga el archivo: `resolver_conflictos.bat` del repositorio
+2. Ejecútalo (doble clic)
+3. El script descartará cambios locales y actualizará todo automáticamente
+
+### O manualmente:
+```batch
+cd C:\Users\TuUsuario\Documents\ServitecManager
+git reset --hard HEAD
+git pull origin main
+```
+
+---
+
+## Problema 2: Error "table ordenes has no column named descuento"
 ```
 Error en EJECUTAR_CONSULTA: table ordenes has no column named descuento
 ```
 
-## Causa
+### Causa
 La base de datos local no tiene la nueva columna `descuento` que se agregó en la última actualización.
 
-## Solución Rápida
+### Solución Rápida
 
 ### Opción 1: Ejecutar actualizar_servitec.bat (RECOMENDADO)
 El actualizador ahora incluye migraciones automáticas:
