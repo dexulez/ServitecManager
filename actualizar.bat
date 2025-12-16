@@ -11,6 +11,9 @@ echo.
 
 echo [1/5] 📥 Descargando últimos cambios desde GitHub...
 echo ────────────────────────────────────────────────────────────
+echo Guardando cambios locales de la base de datos...
+git stash push servitec_manager/SERVITEC.DB -m "Auto-stash BD antes de actualizar" 2>nul
+
 git pull origin main
 if %errorlevel% neq 0 (
     echo.
@@ -20,6 +23,10 @@ if %errorlevel% neq 0 (
     pause
     exit /b 1
 )
+
+echo Restaurando base de datos local...
+git stash pop 2>nul
+
 echo ✅ Código actualizado correctamente
 echo.
 echo.
