@@ -249,6 +249,8 @@ class WorkshopFrame(ctk.CTkFrame):
         self.selected_order_id = order[0]
         cliente = order[14] if len(order)>14 else "DESCONOCIDO"; equipo = f"{order[4]} {order[5]} {order[6]}"; serie = order[7]; obs = order[8]; estado = order[9]; 
         presupuesto = order[12]; abono = order[13]; tech_id = order[2]
+        descuento = order[16] if len(order) > 16 else 0
+        total = presupuesto - (descuento or 0)
 
         self.lbl_title.configure(text=f"ORDEN #{self.selected_order_id}")
         self.lbl_client.configure(text=cliente.upper() if cliente else "GENÉRICO")
@@ -260,10 +262,10 @@ class WorkshopFrame(ctk.CTkFrame):
             if tid == tech_id: tech_name = name; break
         self.combo_status.set(estado); self.combo_tech.set(tech_name)
 
-        self.var_total.set(self.format_money(presupuesto))
+        self.var_total.set(self.format_money(total))
         self.var_abono.set(self.format_money(abono)) 
         
-        pendiente = max(0, presupuesto - abono)
+        pendiente = max(0, total - abono)
         self.var_pending_display.set(f"RESTA POR PAGAR: ${self.format_money(pendiente)}")
 
         self.var_cost_part.set("0"); self.var_cost_ship.set("0")
@@ -357,7 +359,9 @@ class WorkshopFrame(ctk.CTkFrame):
         order_id = orden[0]
         cliente_nombre = orden[14] if len(orden) > 14 and orden[14] else "GENÉRICO"
         equipo = f"{orden[4]} {orden[5]} {orden[6]}"  # tipo + marca + modelo
-        presupuesto = total_servicio if total_servicio > 0 else (orden[12] if len(orden) > 12 else 0)
+        presupuesto_base = total_servicio if total_servicio > 0 else (orden[12] if len(orden) > 12 else 0)
+        descuento = orden[16] if len(orden) > 16 else 0
+        presupuesto = presupuesto_base - (descuento or 0)
         
         # Calcular monto pendiente (total - abono ya pagado)
         monto_pendiente = presupuesto - abono_pagado
