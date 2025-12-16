@@ -1387,7 +1387,7 @@ class GESTOR_LOGICA:
 
     def INICIAR_SESIÓN(self, usuario, contraseña): return self.bd.OBTENER_UNO("SELECT * FROM usuarios WHERE nombre = ? AND password = ?", (usuario.upper(), contraseña))
     def OBTENER_TODOS_USUARIOS(self): return self.bd.OBTENER_TODOS("SELECT * FROM usuarios")
-    def OBTENER_TÉCNICOS(self): return self.bd.OBTENER_TODOS("SELECT id, nombre, porcentaje_comision FROM usuarios WHERE rol IN ('TÉCNICO', 'GERENTE', 'ADMINISTRADOR')")
+    def OBTENER_TÉCNICOS(self): return self.bd.OBTENER_TODOS("SELECT id, nombre, porcentaje_comision FROM usuarios WHERE UPPER(rol) IN ('TECNICO', 'TÉCNICO', 'GERENTE', 'ADMINISTRADOR')")
     def CREAR_USUARIO(self, usuario, contraseña, rol, comisión):
         try: return self.bd.EJECUTAR_CONSULTA("INSERT INTO usuarios (nombre, password, rol, porcentaje_comision) VALUES (?, ?, ?, ?)", (usuario.upper(), contraseña, rol.upper(), comisión))
         except: return False
