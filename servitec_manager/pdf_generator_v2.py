@@ -362,13 +362,15 @@ class PDFGeneratorV2:
             except (ValueError, TypeError):
                 return 0
         
-        total = to_float_safe(orden_data[12])  # presupuesto
+        presupuesto_bruto = to_float_safe(orden_data[12])  # presupuesto
         abono = to_float_safe(orden_data[13])  # abono
         descuento = to_float_safe(orden_data[16]) if len(orden_data) > 16 else 0  # descuento
         
-        # Calcular IVA (19%) y subtotal
-        subtotal = total / 1.19  # Asumiendo que el total incluye IVA
-        iva = total - subtotal
+        # Calcular total con descuento aplicado
+        presupuesto_neto = presupuesto_bruto - descuento
+        subtotal = presupuesto_neto / 1.19  # Sin IVA
+        iva = presupuesto_neto - subtotal
+        total = presupuesto_neto  # Total es presupuesto menos descuento
         saldo = total - abono
         
         # Dibujar valores DENTRO del borde (bajar texto 8mm total)

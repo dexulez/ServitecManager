@@ -1641,6 +1641,7 @@ class ReceptionFrame(ctk.CTkFrame):
         self.var_fault.set("")  # Limpiar falla interna
         self.text_obs.delete("0.0", "end")  # Limpiar observaciones
         self.var_price.set("")
+        self.var_discount.set("")  # Limpiar descuento
         self.var_deposit.set("")
         self.var_service.set("")  # Limpiar servicio seleccionado
         self.var_part.set("SIN REPUESTO")  # Resetear repuesto
