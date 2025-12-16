@@ -271,8 +271,8 @@ class PDFGeneratorV2:
         c.setFont("Helvetica-Bold", 10)
         c.drawString(equipo_x + 3*mm, y_contenido, "FECHA ENTREGA:")
         c.setFont("Helvetica", 10)
-        # La fecha de entrega está después de descuento y abono (índice 15)
-        fecha_entrega = str(orden_data[15] or "")[:10] if len(orden_data) > 15 and orden_data[15] else "Sin definir"
+        # La fecha de entrega está en índice 14
+        fecha_entrega = str(orden_data[14] or "")[:10] if len(orden_data) > 14 and orden_data[14] else "Sin definir"
         c.drawString(equipo_x + 35*mm, y_contenido, fecha_entrega)
         
         # ==================== SECCIÓN 3: ESTADO Y ACCESORIOS ====================
@@ -362,9 +362,9 @@ class PDFGeneratorV2:
             except (ValueError, TypeError):
                 return 0
         
-        total = to_float_safe(orden_data[12])
-        descuento = to_float_safe(orden_data[13]) if len(orden_data) > 13 else 0
-        abono = to_float_safe(orden_data[14]) if len(orden_data) > 14 else 0
+        total = to_float_safe(orden_data[12])  # presupuesto
+        abono = to_float_safe(orden_data[13])  # abono
+        descuento = to_float_safe(orden_data[16]) if len(orden_data) > 16 else 0  # descuento
         
         # Calcular IVA (19%) y subtotal
         subtotal = total / 1.19  # Asumiendo que el total incluye IVA
