@@ -60,6 +60,13 @@ class AdminFrame(ctk.CTkFrame):
 
         ctk.CTkButton(right_panel, text="✅ GUARDAR USUARIO", command=self.save_user, **Theme.get_button_style("success"), height=50).pack(pady=30, fill="x", padx=20)
 
+        # Separador
+        ctk.CTkFrame(right_panel, height=2, fg_color=Theme.DIVIDER).pack(fill="x", pady=20, padx=20)
+        
+        # Sección de administración de base de datos
+        ctk.CTkLabel(right_panel, text="⚠️ ZONA PELIGROSA", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), text_color="#FF0000").pack(anchor="w", padx=20, pady=(10,5))
+        ctk.CTkButton(right_panel, text="🗑️ LIMPIAR BASE DE DATOS", command=self.limpiar_base_datos, fg_color="#FF4444", hover_color="#CC0000", text_color="white", height=50).pack(pady=10, fill="x", padx=20)
+
         self.load_users()
 
     def refresh(self):
@@ -115,3 +122,113 @@ class AdminFrame(ctk.CTkFrame):
             # Refrescar lista de técnicos en recepción
             if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
                 self.app.frames['Reception'].refresh()
+    
+    def limpiar_base_datos(self):
+        """Limpia todos los datos de la base de datos manteniendo usuarios"""
+        # Primera confirmación
+        respuesta1 = messagebox.askquestion(
+            "⚠️ ADVERTENCIA - ACCIÓN IRREVERSIBLE",
+            "Esta acción eliminará:\n\n"
+            "• Todas las órdenes de servicio\n"
+            "• Todos los clientes\n"
+            "• Todas las ventas\n"
+            "• Todo el inventario\n"
+            "• Todas las transacciones\n\n"
+            "Se mantendrán:\n"
+            "✓ Usuarios y contraseñas\n"
+            "✓ Configuración del sistema\n\n"
+            "¿Está SEGURO que desea continuar?",
+            icon='warning'
+        )
+        
+        if respuesta1 != 'yes':
+            return
+        
+        # Segunda confirmación
+        respuesta2 = messagebox.askquestion(
+            "⚠️ ÚLTIMA CONFIRMACIÓN",
+            "Esta es su última oportunidad para cancelar.\n\n"
+            "Se creará un backup automático antes de limpiar.\n\n"
+            "¿Confirma que desea LIMPIAR LA BASE DE DATOS?",
+            icon='warning'
+        )
+        
+        if respuesta2 != 'yes':
+            messagebox.showinfo("Operación cancelada", "No se realizaron cambios en la base de datos.")
+            return
+        
+        try:
+            import sqlite3
+            import os
+            from datetime import datetime
+            
+            db_path = 'SERVITEC.DB'
+            
+            # Crear backup
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_dir = 'backups'
+            
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            backup_path = os.path.join(backup_dir, f'SERVITEC_BACKUP_{timestamp}.DB')
+            
+            import shutil
+            shutil.copy2(db_path, backup_path)
+            
+            # Limpiar base de datos
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            # Eliminar datos de tablas principales
+            tablas = ['ordenes', 'clientes', 'ventas', 'detalle_ventas', 'inventario', 
+                     'finanzas', 'proveedores', 'pedidos', 'caja']
+            
+            for tabla in tablas:
+                try:
+                    c.execute(f'DELETE FROM {tabla}')
+                except:
+                    pass
+            
+            # Limpiar servicios y repuestos excepto el primero
+            try:
+                c.execute('DELETE FROM servicios WHERE id > 1')
+                c.execute('DELETE FROM repuestos WHERE id > 1')
+            except:
+                pass
+            
+            # Reiniciar secuencias
+            try:
+                c.execute('UPDATE sqlite_sequence SET seq = 0 WHERE name IN ("ordenes", "clientes", "ventas", "inventario", "finanzas", "proveedores", "pedidos", "caja")')
+            except:
+                pass
+            
+            conn.commit()
+            
+            # Verificar resultado
+            ordenes = c.execute('SELECT COUNT(*) FROM ordenes').fetchone()[0]
+            clientes = c.execute('SELECT COUNT(*) FROM clientes').fetchone()[0]
+            
+            conn.close()
+            
+            # Refrescar todas las vistas
+            if self.app:
+                self.app.refresh_all_frames()
+            
+            messagebox.showinfo(
+                "✅ BASE DE DATOS LIMPIADA",
+                f"Operación completada exitosamente.\n\n"
+                f"📊 Estado actual:\n"
+                f"• Órdenes: {ordenes}\n"
+                f"• Clientes: {clientes}\n\n"
+                f"💾 Backup guardado en:\n{backup_path}\n\n"
+                f"La aplicación está lista para usarse."
+            )
+            
+        except Exception as e:
+            messagebox.showerror(
+                "❌ ERROR",
+                f"No se pudo limpiar la base de datos:\n\n{str(e)}\n\n"
+                f"Por favor, cierre ServitecManager y ejecute:\n"
+                f"python limpiar_db.py"
+            )
