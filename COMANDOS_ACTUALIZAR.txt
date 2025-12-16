@@ -1,0 +1,107 @@
+╔════════════════════════════════════════════════════════════╗
+║                                                            ║
+║     📋 COMANDOS PARA ACTUALIZAR EN EL OTRO COMPUTADOR     ║
+║                                                            ║
+╚════════════════════════════════════════════════════════════╝
+
+IMPORTANTE: Copiar y pegar estos comandos en PowerShell o CMD
+
+
+═══════════════════════════════════════════════════════════
+  OPCIÓN 1: ACTUALIZACIÓN AUTOMÁTICA (RECOMENDADA)
+═══════════════════════════════════════════════════════════
+
+1. Abrir PowerShell en la carpeta ServitecManager
+2. Ejecutar:
+
+cd C:\ruta\a\ServitecManager
+actualizar.bat
+
+
+═══════════════════════════════════════════════════════════
+  OPCIÓN 2: ACTUALIZACIÓN MANUAL
+═══════════════════════════════════════════════════════════
+
+Copiar y pegar estos comandos uno por uno:
+
+cd C:\ruta\a\ServitecManager
+git pull
+cd servitec_manager
+python migrar_descuento.py
+python main.py
+
+
+═══════════════════════════════════════════════════════════
+  OPCIÓN 3: SOLO DESCARGAR CÓDIGO (SIN MIGRACIÓN)
+═══════════════════════════════════════════════════════════
+
+cd C:\ruta\a\ServitecManager
+git pull
+cd servitec_manager
+python main.py
+
+
+═══════════════════════════════════════════════════════════
+  ✅ VERIFICAR QUE LA ACTUALIZACIÓN FUNCIONÓ
+═══════════════════════════════════════════════════════════
+
+Después de actualizar, verifica:
+
+✓ En RECEPCIÓN:
+  - Campo "DESCUENTO ($):" visible
+  - PDFs se generan correctamente
+
+✓ En ADMINISTRACIÓN (hacer scroll abajo):
+  - Sección "💾 GESTIÓN DE BASE DE DATOS"
+  - Botón azul "💾 RESPALDAR BASE DE DATOS"
+  - Sección "⚠️ ZONA PELIGROSA"
+  - Botón rojo "🗑️ LIMPIAR BASE DE DATOS"
+
+✓ En HISTORIAL:
+  - Órdenes aparecen correctamente
+  - Totales con descuento aplicado
+
+
+═══════════════════════════════════════════════════════════
+  🐛 SI HAY ERRORES
+═══════════════════════════════════════════════════════════
+
+Error: "table ordenes has no column named descuento"
+Solución:
+  cd servitec_manager
+  python migrar_descuento.py
+
+
+Error: "git command not found"
+Solución:
+  1. Descargar ZIP desde: https://github.com/dexulez/ServitecManager
+  2. Extraer archivos
+  3. Copiar archivos .py (NO reemplazar SERVITEC.DB)
+
+
+Error: "No module named..."
+Solución:
+  cd servitec_manager
+  pip install -r requirements.txt
+
+
+═══════════════════════════════════════════════════════════
+  📦 RESUMEN DE ACTUALIZACIONES INCLUIDAS
+═══════════════════════════════════════════════════════════
+
+✅ Campo de DESCUENTO en recepción
+✅ Cálculo correcto de totales con descuento
+✅ PDFs actualizados (datos de cliente correctos)
+✅ Historial muestra totales correctos
+✅ Botón de RESPALDAR base de datos
+✅ Botón de LIMPIAR base de datos
+✅ Migración automática al iniciar
+✅ Corrección de índices de datos
+
+
+═══════════════════════════════════════════════════════════
+
+Fecha: 16 de diciembre de 2025
+Repositorio: https://github.com/dexulez/ServitecManager
+
+═══════════════════════════════════════════════════════════
