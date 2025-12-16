@@ -63,8 +63,12 @@ class AdminFrame(ctk.CTkFrame):
         # Separador
         ctk.CTkFrame(right_panel, height=2, fg_color=Theme.DIVIDER).pack(fill="x", pady=20, padx=20)
         
-        # Sección de administración de base de datos
-        ctk.CTkLabel(right_panel, text="⚠️ ZONA PELIGROSA", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), text_color="#FF0000").pack(anchor="w", padx=20, pady=(10,5))
+        # Sección de gestión de base de datos
+        ctk.CTkLabel(right_panel, text="💾 GESTIÓN DE BASE DE DATOS", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), text_color=Theme.PRIMARY).pack(anchor="w", padx=20, pady=(10,5))
+        ctk.CTkButton(right_panel, text="💾 RESPALDAR BASE DE DATOS", command=self.respaldar_base_datos, fg_color="#2196F3", hover_color="#1976D2", text_color="white", height=50).pack(pady=10, fill="x", padx=20)
+        
+        # Zona peligrosa
+        ctk.CTkLabel(right_panel, text="⚠️ ZONA PELIGROSA", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), text_color="#FF0000").pack(anchor="w", padx=20, pady=(20,5))
         ctk.CTkButton(right_panel, text="🗑️ LIMPIAR BASE DE DATOS", command=self.limpiar_base_datos, fg_color="#FF4444", hover_color="#CC0000", text_color="white", height=50).pack(pady=10, fill="x", padx=20)
 
         self.load_users()
@@ -122,6 +126,94 @@ class AdminFrame(ctk.CTkFrame):
             # Refrescar lista de técnicos en recepción
             if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
                 self.app.frames['Reception'].refresh()
+    
+    def respaldar_base_datos(self):
+        """Crea un respaldo manual de la base de datos"""
+        try:
+            import os
+            import shutil
+            from datetime import datetime
+            from tkinter import filedialog
+            
+            db_path = 'SERVITEC.DB'
+            
+            if not os.path.exists(db_path):
+                messagebox.showerror("Error", "No se encuentra la base de datos SERVITEC.DB")
+                return
+            
+            # Crear directorio de backups si no existe
+            backup_dir = 'backups'
+            if not os.path.exists(backup_dir):
+                os.makedirs(backup_dir)
+            
+            # Generar nombre del backup
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_name = f'SERVITEC_BACKUP_{timestamp}.DB'
+            backup_path = os.path.join(backup_dir, backup_name)
+            
+            # Preguntar si desea elegir ubicación personalizada
+            respuesta = messagebox.askyesnocancel(
+                "💾 RESPALDO DE BASE DE DATOS",
+                f"Se creará un respaldo de la base de datos.\n\n"
+                f"¿Desea elegir la ubicación del respaldo?\n\n"
+                f"• SÍ: Elegir ubicación personalizada\n"
+                f"• NO: Guardar en carpeta 'backups' predeterminada\n"
+                f"• Cancelar: Cancelar operación"
+            )
+            
+            if respuesta is None:  # Cancelar
+                return
+            
+            if respuesta:  # Sí - elegir ubicación
+                custom_path = filedialog.asksaveasfilename(
+                    title="Guardar respaldo como",
+                    initialfile=backup_name,
+                    defaultextension=".DB",
+                    filetypes=[("Base de datos", "*.DB"), ("Todos los archivos", "*.*")]
+                )
+                
+                if not custom_path:  # Usuario canceló el diálogo
+                    return
+                
+                backup_path = custom_path
+            
+            # Crear el respaldo
+            shutil.copy2(db_path, backup_path)
+            
+            # Obtener estadísticas de la base de datos
+            import sqlite3
+            conn = sqlite3.connect(db_path)
+            c = conn.cursor()
+            
+            ordenes = c.execute('SELECT COUNT(*) FROM ordenes').fetchone()[0]
+            clientes = c.execute('SELECT COUNT(*) FROM clientes').fetchone()[0]
+            usuarios = c.execute('SELECT COUNT(*) FROM usuarios').fetchone()[0]
+            ventas = c.execute('SELECT COUNT(*) FROM ventas').fetchone()[0]
+            
+            conn.close()
+            
+            # Obtener tamaño del archivo
+            file_size = os.path.getsize(backup_path)
+            size_mb = file_size / (1024 * 1024)
+            
+            messagebox.showinfo(
+                "✅ RESPALDO COMPLETADO",
+                f"Base de datos respaldada exitosamente.\n\n"
+                f"📁 Ubicación:\n{backup_path}\n\n"
+                f"📊 Contenido respaldado:\n"
+                f"• Órdenes: {ordenes}\n"
+                f"• Clientes: {clientes}\n"
+                f"• Usuarios: {usuarios}\n"
+                f"• Ventas: {ventas}\n\n"
+                f"💾 Tamaño: {size_mb:.2f} MB\n\n"
+                f"🕐 Fecha: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+            )
+            
+        except Exception as e:
+            messagebox.showerror(
+                "❌ ERROR",
+                f"No se pudo crear el respaldo:\n\n{str(e)}"
+            )
     
     def limpiar_base_datos(self):
         """Limpia todos los datos de la base de datos manteniendo usuarios"""
