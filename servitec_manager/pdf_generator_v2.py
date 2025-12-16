@@ -355,10 +355,16 @@ class PDFGeneratorV2:
         c.setLineWidth(1.5)
         c.rect(financiero_x, financiero_y - financiero_height + 8*mm, financiero_width, financiero_height - 8*mm, fill=0, stroke=1)
         
-        # Calcular valores financieros
-        total = float(orden_data[12] or 0)
-        descuento = float(orden_data[13] or 0) if len(orden_data) > 13 else 0
-        abono = float(orden_data[14] or 0) if len(orden_data) > 14 else 0
+        # Calcular valores financieros - conversión segura
+        def to_float_safe(value):
+            try:
+                return float(value or 0)
+            except (ValueError, TypeError):
+                return 0
+        
+        total = to_float_safe(orden_data[12])
+        descuento = to_float_safe(orden_data[13]) if len(orden_data) > 13 else 0
+        abono = to_float_safe(orden_data[14]) if len(orden_data) > 14 else 0
         
         # Calcular IVA (19%) y subtotal
         subtotal = total / 1.19  # Asumiendo que el total incluye IVA
