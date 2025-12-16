@@ -199,7 +199,7 @@ class HistoryFrame(ctk.CTkFrame):
                 ctk.CTkFrame(sec, height=1, fg_color=Theme.DIVIDER).pack(fill="x", padx=15)
                 ctk.CTkLabel(sec, text=content, font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_SMALL), text_color=Theme.TEXT_PRIMARY, justify="left", anchor="w", wraplength=580).pack(fill="x", padx=15, pady=(5, 10))
                 
-            add_sec("CLIENTE", f"Nombre: {tdata[15]}\nRUT: {tdata[14]}\nTeléfono: {tdata[16]}\nEmail: {tdata[17]}")
+            add_sec("CLIENTE", f"Nombre: {tdata[18]}\nRUT: {tdata[17]}\nTeléfono: {tdata[19]}\nEmail: {tdata[20]}")
             add_sec("EQUIPO", f"Tipo: {tdata[4]}\nMarca: {tdata[5]}\nModelo: {tdata[6]}\nSerie/IMEI: {tdata[7]}\nAccesorios: {tdata[10]}\nRiesgoso: {'SÍ' if tdata[11] else 'NO'}")
             add_sec("FALLA / DIAGNÓSTICO", tdata[8])
             add_sec("ESTADO Y FECHAS", f"Estado: {tdata[9]}\nIngreso: {tdata[3]}")
