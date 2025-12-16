@@ -102,7 +102,7 @@ class AdminFrame(ctk.CTkFrame):
                 self.entry_pass.delete(0, "end")
                 # Refrescar lista de técnicos en recepción
                 if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
-                    self.app.frames['Reception'].refresh_data()
+                    self.app.frames['Reception'].refresh()
             else:
                 messagebox.showerror("ERROR", "EL USUARIO YA EXISTE")
         except ValueError:
@@ -114,4 +114,4 @@ class AdminFrame(ctk.CTkFrame):
             self.load_users()
             # Refrescar lista de técnicos en recepción
             if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
-                self.app.frames['Reception'].refresh_data()
+                self.app.frames['Reception'].refresh()
