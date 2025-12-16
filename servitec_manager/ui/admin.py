@@ -3,9 +3,10 @@ from tkinter import messagebox
 from .theme import Theme
 
 class AdminFrame(ctk.CTkFrame):
-    def __init__(self, parent, logic, current_user):
+    def __init__(self, parent, logic, current_user, app=None):
         super().__init__(parent, fg_color=Theme.BACKGROUND)
         self.logic = logic
+        self.app = app
         
         # GRID LAYOUT
         self.grid_columnconfigure(0, weight=1) # Lista
@@ -99,6 +100,9 @@ class AdminFrame(ctk.CTkFrame):
                 self.load_users()
                 self.var_user.set("")
                 self.entry_pass.delete(0, "end")
+                # Refrescar lista de técnicos en recepción
+                if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
+                    self.app.frames['Reception'].refresh_data()
             else:
                 messagebox.showerror("ERROR", "EL USUARIO YA EXISTE")
         except ValueError:
@@ -108,3 +112,6 @@ class AdminFrame(ctk.CTkFrame):
         if messagebox.askyesno("CONFIRMAR", "¿ELIMINAR ESTE USUARIO?"):
             self.logic.delete_user(uid)
             self.load_users()
+            # Refrescar lista de técnicos en recepción
+            if self.app and hasattr(self.app, 'frames') and 'Reception' in self.app.frames:
+                self.app.frames['Reception'].refresh_data()

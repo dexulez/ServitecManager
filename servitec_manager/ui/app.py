@@ -258,7 +258,7 @@ class APLICACION(ctk.CTk):
         self.frames["Dashboard"] = DashboardFrame(self.main_frame, self.gestor_lógica, self.usuario_actual)
         self.frames["Reception"] = ReceptionFrame(self.main_frame, self.gestor_lógica, self.usuario_actual)
         self.frames["Workshop"] = WorkshopFrame(self.main_frame, self.gestor_lógica, self.usuario_actual, self)
-        self.frames["Admin"] = AdminFrame(self.main_frame, self.gestor_lógica, self.usuario_actual)
+        self.frames["Admin"] = AdminFrame(self.main_frame, self.gestor_lógica, self.usuario_actual, self)
         self.frames["History"] = HistoryFrame(self.main_frame, self.gestor_lógica, self.usuario_actual, self)
         self.frames["Reports"] = ReportsFrame(self.main_frame, self.gestor_lógica, self.usuario_actual)
         self.frames["Cash"] = CashFrame(self.main_frame, self.gestor_lógica, self.usuario_actual)
