@@ -32,8 +32,16 @@ def LIMPIAR_CACHE():
 def EJECUTAR_MIGRACIONES():
     """Ejecuta migraciones de base de datos automáticamente"""
     import sqlite3
+    import os
+    
+    db_path = 'SERVITEC.DB'
+    
+    # Si no existe la base de datos, no hacer nada (se creará con la estructura correcta)
+    if not os.path.exists(db_path):
+        return
+    
     try:
-        conn = sqlite3.connect('SERVITEC.DB')
+        conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
         # Verificar si existe la columna descuento
@@ -43,13 +51,23 @@ def EJECUTAR_MIGRACIONES():
         
         if 'descuento' not in columnas_nombres:
             print("🔧 Aplicando migración: agregando columna 'descuento'...")
+            
+            # Desactivar foreign keys temporalmente
+            cursor.execute("PRAGMA foreign_keys = OFF")
+            
+            # Agregar columna con valor por defecto
             cursor.execute("ALTER TABLE ordenes ADD COLUMN descuento INTEGER DEFAULT 0")
+            
+            # Reactivar foreign keys
+            cursor.execute("PRAGMA foreign_keys = ON")
+            
             conn.commit()
             print("✅ Migración completada: columna 'descuento' agregada")
         
         conn.close()
     except Exception as e:
         print(f"⚠️ Error en migración: {e}")
+        print(f"   Por favor, ejecute manualmente: python migrar_descuento.py")
 
 def PRINCIPAL():
     # --- LIMPIEZA AUTOMÁTICA DE CACHE ---
