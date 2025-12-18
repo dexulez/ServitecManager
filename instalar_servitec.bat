@@ -3,19 +3,34 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 
 echo ╔═══════════════════════════════════════════════════════════╗
-echo ║     SERVITEC MANAGER - INSTALADOR AUTOMÁTICO             ║
-echo ║     Descarga e Instalación Completa del Sistema          ║
+echo ║     INSTALADOR DE SERVITEC MANAGER PRO                   ║
+echo ║     Descarga e instala desde GitHub                      ║
 echo ╚═══════════════════════════════════════════════════════════╝
 echo.
 
 :: ========================================
-:: CONFIGURACIÓN - MODIFICA ESTA URL
+:: CONFIGURACIÓN
 :: ========================================
-set REPO_URL=https://github.com/dexulez/ServitecManager.git
 set INSTALL_DIR=%USERPROFILE%\Documents\ServitecManager
-set PYTHON_MIN_VERSION=3.13
+set REPO_URL=https://github.com/dexulez/ServitecManager.git
+set VENV_DIR=%INSTALL_DIR%\.venv
 
-echo [1/7] Verificando requisitos del sistema...
+echo [1/7] Verificando requisitos previos...
+echo.
+
+:: ========================================
+:: Verificar Python
+:: ========================================
+python --version >nul 2>&1
+if %errorlevel% neq 0 (
+    echo ❌ ERROR: Python no está instalado
+    echo 📥 Descarga Python 3.11+ desde: https://www.python.org/downloads/
+    echo 💡 Durante la instalación, marca: "Add Python to PATH"
+    echo.
+    pause
+    exit /b 1
+)
+echo ✅ Python disponible
 echo.
 
 :: ========================================
@@ -23,31 +38,154 @@ echo.
 :: ========================================
 git --version >nul 2>&1
 if %errorlevel% neq 0 (
-    echo ❌ ERROR: Git no está instalado.
-    echo.
-    echo 📥 Por favor instala Git desde: https://git-scm.com/download/win
+    echo ❌ ERROR: Git no está instalado
+    echo 📥 Descarga Git desde: https://git-scm.com/download/win
     echo.
     pause
     exit /b 1
 )
-echo ✅ Git encontrado
+echo ✅ Git disponible
+echo.
 
 :: ========================================
-:: Verificar Python
+:: Limpiar instalación anterior si existe
 :: ========================================
-python --version >nul 2>&1
+if exist "%INSTALL_DIR%" (
+    echo [2/7] Encontrada instalación anterior en: %INSTALL_DIR%
+    set /p RESPONSE="¿Deseas actualizar la instalación existente? (s/n): "
+    if /i "!RESPONSE!"=="s" (
+        cd /d "%INSTALL_DIR%"
+        echo   Descargando actualizaciones...
+        git fetch origin
+        git pull origin main
+        if !errorlevel! neq 0 (
+            echo ⚠️  Error al actualizar. Instalando desde cero...
+            rmdir /s /q "%INSTALL_DIR%"
+            goto :INSTALL_NEW
+        )
+        echo ✅ Instalación actualizada
+        goto :SETUP_VENV
+    ) else (
+        echo ❌ Instalación cancelada
+        pause
+        exit /b 0
+    )
+)
+
+:: ========================================
+:: Clonar repositorio
+:: ========================================
+:INSTALL_NEW
+echo [2/7] Descargando ServitecManager desde GitHub...
+echo.
+
+git clone %REPO_URL% "%INSTALL_DIR%"
 if %errorlevel% neq 0 (
-    echo ❌ ERROR: Python no está instalado.
-    echo.
-    echo 📥 Por favor instala Python %PYTHON_MIN_VERSION%+ desde: https://www.python.org/downloads/
-    echo    IMPORTANTE: Marca la opción "Add Python to PATH" durante la instalación
+    echo ❌ ERROR: No se pudo clonar el repositorio
+    echo 🔍 Verifica tu conexión a internet
+    echo 📍 Repositorio: %REPO_URL%
     echo.
     pause
     exit /b 1
 )
+echo ✅ Descarga completada
+echo.
 
-for /f "tokens=2" %%i in ('python --version 2^>^&1') do set PYTHON_VERSION=%%i
-echo ✅ Python %PYTHON_VERSION% encontrado
+:: ========================================
+:: Crear entorno virtual
+:: ========================================
+:SETUP_VENV
+echo [3/7] Creando entorno virtual...
+cd /d "%INSTALL_DIR%"
+
+if not exist "%VENV_DIR%" (
+    python -m venv .venv
+    if %errorlevel% neq 0 (
+        echo ❌ ERROR: No se pudo crear el entorno virtual
+        pause
+        exit /b 1
+    )
+    echo ✅ Entorno virtual creado
+) else (
+    echo ✅ Entorno virtual existente
+)
+echo.
+
+:: ========================================
+:: Activar entorno virtual
+:: ========================================
+echo [4/7] Activando entorno virtual...
+call "%VENV_DIR%\Scripts\activate.bat"
+echo ✅ Entorno virtual activado
+echo.
+
+:: ========================================
+:: Instalar dependencias
+:: ========================================
+echo [5/7] Instalando dependencias de Python...
+if exist "%INSTALL_DIR%\servitec_manager\requirements.txt" (
+    python -m pip install --upgrade pip --quiet
+    pip install -r "%INSTALL_DIR%\servitec_manager\requirements.txt" --quiet
+    if %errorlevel% neq 0 (
+        echo ⚠️  ADVERTENCIA: Algunas dependencias no se instalaron correctamente
+        echo 💡 El sistema puede seguir funcionando
+    ) else (
+        echo ✅ Dependencias instaladas
+    )
+) else (
+    echo ❌ No se encontró requirements.txt
+)
+echo.
+
+:: ========================================
+:: Ejecutar migraciones de base de datos
+:: ========================================
+echo [6/7] Preparando base de datos...
+cd "%INSTALL_DIR%\servitec_manager"
+if exist "migrar_descuento.py" (
+    python migrar_descuento.py
+    echo.
+)
+cd "%INSTALL_DIR%"
+echo ✅ Base de datos lista
+echo.
+
+:: ========================================
+:: Crear acceso directo en escritorio
+:: ========================================
+echo [7/7] Creando acceso directo en el escritorio...
+
+powershell -Command ^
+"$WshShell = New-Object -ComObject WScript.Shell; ^
+$Shortcut = $WshShell.CreateShortcut([Environment]::GetFolderPath('Desktop') + '\ServitecManager.lnk'); ^
+$Shortcut.TargetPath = 'powershell.exe'; ^
+$Shortcut.Arguments = '-Command \"cd ^\"'%INSTALL_DIR%\servitec_manager^\" ; python main.py\"'; ^
+$Shortcut.WorkingDirectory = '%INSTALL_DIR%\servitec_manager'; ^
+$Shortcut.Save()"
+
+echo ✅ Acceso directo creado en el escritorio
+echo.
+
+:: ========================================
+:: Finalización
+:: ========================================
+echo.
+echo ╔═══════════════════════════════════════════════════════════╗
+echo ║  ✅ INSTALACIÓN COMPLETADA EXITOSAMENTE                   ║
+echo ╚═══════════════════════════════════════════════════════════╝
+echo.
+echo 📌 Instalación en: %INSTALL_DIR%
+echo 🚀 Inicia desde el acceso directo "ServitecManager" en el escritorio
+echo 💻 O ejecuta manualmente:
+echo    cd "%INSTALL_DIR%\servitec_manager"
+echo    python main.py
+echo.
+echo 🌐 Repositorio: %REPO_URL%
+echo 📚 Para más ayuda, consulta el archivo README.md
+echo.
+
+pause
+exit /b 0
 echo.
 
 :: ========================================
