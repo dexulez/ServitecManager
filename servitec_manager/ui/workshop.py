@@ -365,6 +365,31 @@ class WorkshopFrame(ctk.CTkFrame):
         if new_tech_id:
             self.logic.orders.update_order_tech(self.selected_order_id, new_tech_id)
         
+        # Guardar costos en detalles_orden para que se carguen automáticamente en POS
+        try:
+            # Eliminar detalles_orden anteriores para esta orden
+            self.logic.bd.EJECUTAR_CONSULTA("DELETE FROM detalles_orden WHERE orden_id = ?", (self.selected_order_id,))
+            
+            # Insertar costo de repuestos si es > 0
+            if costo_repuesto > 0:
+                self.logic.bd.EJECUTAR_CONSULTA(
+                    "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
+                    (self.selected_order_id, 'REPUESTO', 'Costo de Repuestos', costo_repuesto, 1)
+                )
+            
+            # Insertar costo de envío si es > 0
+            if costo_envio > 0:
+                self.logic.bd.EJECUTAR_CONSULTA(
+                    "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
+                    (self.selected_order_id, 'ENVIO', 'Costo de Envío', costo_envio, 1)
+                )
+            
+            print(f"DEBUG WORKSHOP: Costos guardados en detalles_orden - Repuestos: ${costo_repuesto}, Envío: ${costo_envio}")
+        except Exception as e:
+            print(f"Error al guardar costos en detalles_orden: {e}")
+            import traceback
+            traceback.print_exc()
+        
         # Actualizar todas las vistas
         if self.app_ref:
             self.app_ref.refresh_all_frames()
