@@ -268,7 +268,27 @@ class WorkshopFrame(ctk.CTkFrame):
         pendiente = max(0, total - abono)
         self.var_pending_display.set(f"RESTA POR PAGAR: ${self.format_money(pendiente)}")
 
-        self.var_cost_part.set("0"); self.var_cost_ship.set("0")
+        # Cargar automáticamente costos de repuestos/servicios asociados a esta orden
+        try:
+            query = """
+            SELECT COALESCE(SUM(CASE WHEN tipo_item = 'REPUESTO' THEN costo ELSE 0 END), 0) as costo_repuestos,
+                   COALESCE(SUM(CASE WHEN tipo_item = 'ENVIO' THEN costo ELSE 0 END), 0) as costo_envio
+            FROM detalles_orden
+            WHERE orden_id = ?
+            """
+            result = self.logic.bd.OBTENER_UNO(query, (self.selected_order_id,))
+            if result:
+                costo_rep = result[0] if result[0] else 0
+                costo_env = result[1] if result[1] else 0
+                self.var_cost_part.set(self.format_money(costo_rep))
+                self.var_cost_ship.set(self.format_money(costo_env))
+            else:
+                self.var_cost_part.set("0")
+                self.var_cost_ship.set("0")
+        except:
+            self.var_cost_part.set("0")
+            self.var_cost_ship.set("0")
+        
         self.var_pay_cash.set("0"); self.var_pay_transf.set("0"); self.var_pay_card.set("0")
         self.var_iva.set(False); self.chk_iva.configure(state="normal")
         self.lbl_preview.configure(text="")
