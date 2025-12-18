@@ -1633,6 +1633,9 @@ class ReceptionFrame(ctk.CTkFrame):
         self.btn_save_client.configure(text="GUARDAR CLIENTE")
         for w in self.history_scroll.winfo_children(): w.destroy()
         ctk.CTkLabel(self.history_scroll, text="SELECCIONE UN CLIENTE...", text_color="gray").pack(pady=20)
+        
+        # Habilitar temporalmente el campo de observaciones para poder limpiarlo
+        self.text_obs.configure(state="normal")
         self.text_obs.delete("0.0", "end")  # Limpiar campo de observaciones
 
         # Limpiar datos del equipo
@@ -1641,7 +1644,6 @@ class ReceptionFrame(ctk.CTkFrame):
         self.var_model.set("")
         self.var_serial.set("")
         self.var_fault.set("")  # Limpiar falla interna
-        self.text_obs.delete("0.0", "end")  # Limpiar observaciones
         self.var_price.set("")
         self.var_discount.set("")  # Limpiar descuento
         self.var_deposit.set("")
@@ -1655,10 +1657,6 @@ class ReceptionFrame(ctk.CTkFrame):
         self.var_charger.set(False)
         self.var_wet.set(False)
         self.var_risky.set(False)
-        
-        # Reset servicios y repuestos
-        self.var_service.set("")
-        self.var_part.set("SIN REPUESTO")
         
         # Deshabilitar campos de equipo
         self.toggle_equipment_fields(False)

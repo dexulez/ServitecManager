@@ -377,6 +377,26 @@ class POSFrame(ctk.CTkFrame):
         ctk.CTkLabel(win, text=name, font=("Arial", 12, "bold")).pack(pady=10)
         v_rep = ctk.StringVar(); v_env = ctk.StringVar(); v_iva = ctk.BooleanVar(); v_card = ctk.BooleanVar()
         
+        # Cargar automáticamente los costos de repuestos y envío de la orden
+        try:
+            # Query para obtener costos de detalles_orden
+            query = """
+            SELECT COALESCE(SUM(CASE WHEN tipo_item = 'REPUESTO' THEN costo ELSE 0 END), 0) as costo_repuesto,
+                   COALESCE(SUM(CASE WHEN tipo_item = 'ENVIO' THEN costo ELSE 0 END), 0) as costo_envio
+            FROM detalles_orden WHERE orden_id = ?
+            """
+            resultado = self.logic.bd.OBTENER_UNO(query, (order_id,))
+            if resultado:
+                costo_rep = int(resultado[0]) if resultado[0] > 0 else 0
+                costo_env = int(resultado[1]) if resultado[1] > 0 else 0
+                # Formatear con miles
+                if costo_rep > 0:
+                    v_rep.set(f"{costo_rep:,}".replace(",", "."))
+                if costo_env > 0:
+                    v_env.set(f"{costo_env:,}".replace(",", "."))
+        except Exception as e:
+            print(f"Error cargando costos de detalles_orden: {e}")
+        
         # Traces para formato de miles
         v_rep.trace("w", lambda *a: self.format_live(v_rep))
         v_env.trace("w", lambda *a: self.format_live(v_env))
