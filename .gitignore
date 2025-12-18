@@ -85,10 +85,15 @@ servitec_manager/reports/**/*.pdf
 *.exe
 *.msi
 *.bat
-# Excepciones
+# Excepciones - Herramientas principales
 !EJECUTAR_SERVITECMANAGER.bat
 !instalar_servitec.bat
 !actualizar_servitec.bat
+!ejecutar.bat
+!actualizar_sin_conflictos.bat
+!desinstalar_servitec.bat
+!gestor_backups.bat
+!diagnostico_sistema.bat
 
 # === Datos de Prueba ===
 *_test_data.py
