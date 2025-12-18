@@ -140,14 +140,36 @@ class POSFrame(ctk.CTkFrame):
         sub = self.get_subtotal()
         desc = self.clean_money(self.var_discount.get())
         return max(0, sub - desc)
+    
+    def get_abonos_total(self):
+        """Calcula el total de abonos ya pagados de órdenes en el carrito"""
+        abonos = 0
+        for item in self.cart:
+            _, _, _, _, is_srv, details = item
+            if is_srv and details:
+                abono = details.get('abono', 0)
+                abonos += abono
+        return abonos
+    
+    def get_total_to_pay(self):
+        """Calcula el monto pendiente de pago (Total - Abonos - Descuentos)"""
+        total = self.get_final_total()
+        abonos = self.get_abonos_total()
+        return max(0, total - abonos)
 
     def update_total_label(self, *args):
         total = self.get_final_total()
-        self.lbl_total.configure(text=f"TOTAL: ${self.format_money(total)}")
+        abonos = self.get_abonos_total()
+        
+        if abonos > 0:
+            pendiente = self.get_total_to_pay()
+            self.lbl_total.configure(text=f"TOTAL: ${self.format_money(total)} | PENDIENTE: ${self.format_money(pendiente)}")
+        else:
+            self.lbl_total.configure(text=f"TOTAL: ${self.format_money(total)}")
 
     def auto_fill_payment(self, target_var, other_vars):
         try:
-            total_to_pay = self.get_final_total()
+            total_to_pay = self.get_total_to_pay()
             paid_so_far = sum([self.clean_money(v.get()) for v in other_vars])
             target_var.set(int(max(0, total_to_pay - paid_so_far)))
             self.update() 
@@ -218,16 +240,39 @@ class POSFrame(ctk.CTkFrame):
     def update_cart_ui(self):
         for w in self.scroll_cart.winfo_children(): w.destroy()
         total = 0
+        abonos_total = 0
+        
         for i, item in enumerate(self.cart):
-            pid, name, qty, price, is_srv, _ = item
+            pid, name, qty, price, is_srv, details = item
             sub = qty * price
             total += sub
-            row = ctk.CTkFrame(self.scroll_cart, fg_color="white"); row.pack(fill="x", pady=2)
+            
+            row = ctk.CTkFrame(self.scroll_cart, fg_color="white")
+            row.pack(fill="x", pady=2)
+            
             txt = f"[SERV] {name.upper()}" if is_srv else f"{name.upper()} x{qty}"
             ctk.CTkLabel(row, text=txt, width=250, anchor="w", font=("Arial", 11), text_color="#333333").pack(side="left", padx=5)
             ctk.CTkLabel(row, text=f"${self.format_money(sub)}", width=80, text_color="green", font=("Arial", 11, "bold")).pack(side="left")
             ctk.CTkButton(row, text="X", width=30, fg_color="red", command=lambda idx=i: self.remove_from_cart(idx)).pack(side="right", padx=5)
+            
+            # Si es un servicio con abono pagado, mostrar detalles del abono
+            if is_srv and details:
+                abono = details.get('abono', 0)
+                if abono > 0:
+                    abonos_total += abono
+                    # Row adicional para mostrar el abono
+                    row_abono = ctk.CTkFrame(self.scroll_cart, fg_color="#f0f0f0")
+                    row_abono.pack(fill="x", pady=(0, 2), padx=(10, 0))
+                    ctk.CTkLabel(row_abono, text="   ↳ Abono pagado:", font=("Arial", 10), text_color="#666666").pack(side="left", padx=5)
+                    ctk.CTkLabel(row_abono, text=f"-${self.format_money(abono)}", font=("Arial", 10, "bold"), text_color="#ff6b6b").pack(side="left")
+        
         self.update_total_label()
+        
+        # Mostrar resumen de abonos si existen
+        if abonos_total > 0:
+            row_resumen = ctk.CTkFrame(self.scroll_cart, fg_color="#e8f5e9")
+            row_resumen.pack(fill="x", pady=(10, 2))
+            ctk.CTkLabel(row_resumen, text=f"💰 TOTAL ABONOS: ${self.format_money(abonos_total)}", font=("Arial", 11, "bold"), text_color="#2e7d32").pack(padx=10, pady=5)
 
     def remove_from_cart(self, index):
         del self.cart[index]; self.update_cart_ui()
@@ -382,9 +427,38 @@ class POSFrame(ctk.CTkFrame):
     def checkout(self):
         if not self.cart: return
         
+        # 1️⃣ VALIDAR QUE CAJA/TURNO ESTÉ ABIERTO
+        user_id = self.current_user['id'] if isinstance(self.current_user, dict) else self.current_user[0]
+        sesion_activa = self.logic.cash.get_active_session(user_id)
+        if not sesion_activa:
+            messagebox.showerror("❌ CAJA CERRADA", "Debe abrir un turno antes de realizar cobros.\n\nVaya al módulo de CAJA y abra el turno.")
+            return
+        
+        # 2️⃣ CALCULAR TOTAL CONSIDERANDO ABONOSY DESCUENTOS
         total_final = self.get_final_total()
         desc = self.clean_money(self.var_discount.get())
         
+        # Verificar si hay servicios (órdenes) en el carrito con abonos ya pagados
+        monto_abonos_pagados = 0
+        detalles_carrito = []
+        
+        for item in self.cart:
+            pid, name, qty, price, is_srv, details = item
+            if is_srv and details:
+                # Si es un servicio con detalles de orden
+                abono_pagado = details.get('abono', 0)
+                monto_abonos_pagados += abono_pagado
+                detalles_carrito.append({
+                    'order_id': pid,
+                    'name': name,
+                    'price': price,
+                    'abono': abono_pagado
+                })
+        
+        # El total a cobrar es: Total - Abonosy - Descuentos
+        monto_a_cobrar = max(0, total_final - monto_abonos_pagados)
+        
+        # 3️⃣ VALIDAR PAGOS
         efec = self.clean_money(self.var_cash.get())
         trf = self.clean_money(self.var_transf.get())
         deb = self.clean_money(self.var_debit.get())
@@ -392,17 +466,48 @@ class POSFrame(ctk.CTkFrame):
         
         pagado = efec + trf + deb + cred
         
-        if pagado != total_final:
-            messagebox.showwarning("ERROR", f"PAGOS NO CUADRAN.\nTOTAL (C/DESC): ${self.format_money(total_final)}\nPAGADO: ${self.format_money(pagado)}")
+        if pagado != monto_a_cobrar:
+            messagebox.showwarning(
+                "ERROR", 
+                f"PAGOS NO CUADRAN.\n\n" +
+                f"Subtotal: ${self.format_money(total_final)}\n" +
+                f"Abonosy previos: ${self.format_money(monto_abonos_pagados)}\n" +
+                f"Descuentos: ${self.format_money(desc)}\n\n" +
+                f"💰 PENDIENTE DE PAGO: ${self.format_money(monto_a_cobrar)}\n" +
+                f"💵 PAGADO: ${self.format_money(pagado)}\n\n" +
+                f"Diferencia: ${self.format_money(abs(monto_a_cobrar - pagado))}"
+            )
             return
+        
+        # 4️⃣ MOSTRAR RESUMEN ANTES DE PROCESAR
+        resumen = f"📋 RESUMEN DE COBRO:\n\n"
+        resumen += f"Subtotal: ${self.format_money(total_final)}\n"
+        if monto_abonos_pagados > 0:
+            resumen += f"(-) Abonosy pagados: ${self.format_money(monto_abonos_pagados)}\n"
+        if desc > 0:
+            resumen += f"(-) Descuentos: ${self.format_money(desc)}\n"
+        resumen += f"\n{'='*40}\n"
+        resumen += f"Total a pagar: ${self.format_money(monto_a_cobrar)}\n\n"
+        
+        resumen += "Formas de pago:\n"
+        if efec > 0:
+            resumen += f"  💵 Efectivo: ${self.format_money(efec)}\n"
+        if trf > 0:
+            resumen += f"  🏦 Transferencia: ${self.format_money(trf)}\n"
+        if deb > 0:
+            resumen += f"  💳 Débito: ${self.format_money(deb)}\n"
+        if cred > 0:
+            resumen += f"  💳 Crédito: ${self.format_money(cred)}\n"
             
-        if messagebox.askyesno("CONFIRMAR", "PROCESAR VENTA?"):
+        if messagebox.askyesno("CONFIRMAR COBRO", resumen):
             pays = {'efectivo': efec, 'transferencia': trf, 'debito': deb, 'credito': cred}
-            user_id = self.current_user['id'] if isinstance(self.current_user, dict) else self.current_user[0]
+            
+            # 5️⃣ PROCESAR VENTA
             if self.logic.inventory.process_sale(user_id, self.cart, pays, total_final, desc):
-                messagebox.showinfo("EXITO", "VENTA REGISTRADA CORRECTAMENTE")
+                messagebox.showinfo("✅ ÉXITO", "VENTA REGISTRADA CORRECTAMENTE.\n\nTurno actualizado.")
                 self.reset_pos_ui()
-            else: messagebox.showerror("ERROR", "FALLO AL GUARDAR EN BASE DE DATOS")
+            else: 
+                messagebox.showerror("❌ ERROR", "FALLO AL GUARDAR EN BASE DE DATOS")
 
     def open_add_product_window(self):
         # Obtener proveedores
