@@ -65,23 +65,23 @@ class Theme:
     DASHBOARD_CARD_4 = "#F0F9F4"  # Menta claro
     
     # Estados de órdenes - Colores pastel suaves
-    STATUS_PENDING = "#FFD700"  # Amarillo dorado (fondo)
-    STATUS_PENDING_TEXT = "#000000"  # Negro (texto)
+    STATUS_PENDING = "#FFF4BA"  # Amarillo pastel suave (fondo)
+    STATUS_PENDING_TEXT = "#7D6B1F"  # Marrón oscuro (texto)
     
-    STATUS_IN_PROGRESS = "#4A90E2"  # Azul intenso (fondo)
-    STATUS_IN_PROGRESS_TEXT = "#FFFFFF"  # Blanco (texto)
+    STATUS_IN_PROGRESS = "#BAD9F5"  # Azul pastel cielo (fondo)
+    STATUS_IN_PROGRESS_TEXT = "#1F4D7D"  # Azul oscuro (texto)
     
-    STATUS_WAITING = "#FF8C00"  # Naranja oscuro (fondo)
-    STATUS_WAITING_TEXT = "#FFFFFF"  # Blanco (texto)
+    STATUS_WAITING = "#FFD9BA"  # Naranja pastel suave (fondo)
+    STATUS_WAITING_TEXT = "#7D3F1F"  # Marrón oscuro (texto)
     
-    STATUS_REPAIRED = "#2ECC71"  # Verde intenso (fondo)
-    STATUS_REPAIRED_TEXT = "#FFFFFF"  # Blanco (texto)
+    STATUS_REPAIRED = "#BAE8D1"  # Verde menta pastel (fondo)
+    STATUS_REPAIRED_TEXT = "#1F5D3F"  # Verde oscuro (texto)
     
-    STATUS_DELIVERED = "#5DADE2"  # Azul cielo intenso (fondo)
-    STATUS_DELIVERED_TEXT = "#000000"  # Negro (texto)
+    STATUS_DELIVERED = "#BAE5F5"  # Azul cielo pastel (fondo)
+    STATUS_DELIVERED_TEXT = "#1F4D7D"  # Azul oscuro (texto)
     
-    STATUS_NO_SOLUTION = "#E74C3C"  # Rojo intenso (fondo)
-    STATUS_NO_SOLUTION_TEXT = "#FFFFFF"  # Blanco (texto)
+    STATUS_NO_SOLUTION = "#F5BACC"  # Rosa pastel suave (fondo)
+    STATUS_NO_SOLUTION_TEXT = "#7D1F3F"  # Rosa oscuro (texto)
     
     # Tipografía
     FONT_FAMILY = "Segoe UI"  # Fuente principal moderna

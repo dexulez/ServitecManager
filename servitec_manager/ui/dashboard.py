@@ -529,14 +529,14 @@ class DashboardFrame(ctk.CTkFrame):
             labels = [s[0] for s in stats]
             sizes = [s[1] for s in stats]
         
-        # Colores más vivos y saturados
+        # Colores pasteles suaves para el gráfico
         colors_map = {
-            "PENDIENTE": "#FFD966",       # Amarillo brillante
-            "EN REPARACION": "#6BAED6",   # Azul vibrante
-            "ESPERA DE REPUESTO": "#FFAB73", # Naranja coral
-            "REPARADO": "#74C476",        # Verde vivo
-            "ENTREGADO": "#9ECAE1",       # Azul cielo intenso
-            "SIN SOLUCION": "#FB6A6A"     # Rojo coral
+            "PENDIENTE": "#FFF4BA",           # Amarillo pastel suave
+            "EN REPARACION": "#BAD9F5",      # Azul pastel cielo
+            "ESPERA DE REPUESTO": "#FFD9BA", # Naranja pastel suave
+            "REPARADO": "#BAE8D1",           # Verde menta pastel
+            "ENTREGADO": "#BAE5F5",          # Azul cielo pastel
+            "SIN SOLUCION": "#F5BACC"        # Rosa pastel suave
         }
         colors = [colors_map.get(l, "#F5F5F5") for l in labels]
 
