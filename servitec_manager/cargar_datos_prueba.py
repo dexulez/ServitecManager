@@ -27,31 +27,31 @@ def poblar_base_datos():
     # 1. USUARIOS
     print("✓ Creando usuarios...")
     usuarios = [
-        ("admin", "admin123", "Administrador", 1),
-        ("tecnico1", "tec123", "Juan Técnico", 0),
-        ("tecnico2", "tec123", "María Soporte", 0),
+        ("admin", "admin123", "Administrador", 50),
+        ("Juan Técnico", "tec123", "Técnico", 50),
+        ("María Soporte", "tec123", "Técnico", 50),
     ]
     
     cursor.execute("DELETE FROM usuarios")
     cursor.executemany("""
-        INSERT INTO usuarios (usuario, password, nombre, es_admin)
+        INSERT INTO usuarios (nombre, password, rol, porcentaje_comision)
         VALUES (?, ?, ?, ?)
     """, usuarios)
     
     # 2. CLIENTES
     print("✓ Creando clientes...")
     clientes = [
-        ("Juan Pérez González", "18.234.567-8", "+56 9 8765 4321", "juan.perez@email.com", "Av. Principal 123, Santiago"),
-        ("María López Fernández", "17.456.789-0", "+56 9 7654 3210", "maria.lopez@email.com", "Calle Los Pinos 456"),
-        ("Carlos Rodríguez Silva", "19.123.456-7", "+56 9 6543 2109", "carlos.rodriguez@email.com", "Pasaje Las Flores 789"),
-        ("Ana Martínez Torres", "16.987.654-3", "+56 9 5432 1098", "ana.martinez@email.com", "Av. Libertad 321"),
-        ("Pedro Sánchez Muñoz", "20.345.678-9", "+56 9 4321 0987", "pedro.sanchez@email.com", "Los Aromos 654"),
+        ("18.234.567-8", "Juan Pérez González", "+56 9 8765 4321", "juan.perez@email.com"),
+        ("17.456.789-0", "María López Fernández", "+56 9 7654 3210", "maria.lopez@email.com"),
+        ("19.123.456-7", "Carlos Rodríguez Silva", "+56 9 6543 2109", "carlos.rodriguez@email.com"),
+        ("16.987.654-3", "Ana Martínez Torres", "+56 9 5432 1098", "ana.martinez@email.com"),
+        ("20.345.678-9", "Pedro Sánchez Muñoz", "+56 9 4321 0987", "pedro.sanchez@email.com"),
     ]
     
     cursor.execute("DELETE FROM clientes")
     cursor.executemany("""
-        INSERT INTO clientes (nombre, rut, telefono, email, direccion)
-        VALUES (?, ?, ?, ?, ?)
+        INSERT INTO clientes (rut, nombre, telefono, email)
+        VALUES (?, ?, ?, ?)
     """, clientes)
     
     # 3. PROVEEDORES
@@ -69,23 +69,23 @@ def poblar_base_datos():
     """, proveedores)
     
     # 4. PRODUCTOS/REPUESTOS
-    print("✓ Creando productos...")
+    print("✓ Creando repuestos...")
     productos = [
-        ("Pantalla Samsung A54", "PANTALLA", 45000, 15, 5),
-        ("Batería iPhone 13", "BATERIA", 28000, 20, 5),
-        ("Cargador USB-C 20W", "ACCESORIO", 8500, 50, 10),
-        ("Cable Lightning", "ACCESORIO", 5000, 80, 15),
-        ("Pantalla Xiaomi Redmi Note 11", "PANTALLA", 38000, 12, 5),
-        ("Batería Samsung S21", "BATERIA", 32000, 18, 5),
-        ("Módulo Táctil Motorola G60", "PANTALLA", 35000, 10, 5),
-        ("Funda Silicona Universal", "ACCESORIO", 3500, 100, 20),
-        ("Vidrio Templado Universal", "ACCESORIO", 2500, 120, 25),
-        ("Auriculares Bluetooth", "ACCESORIO", 15000, 30, 8),
+        ("Pantalla Samsung A54", "PANTALLA", 45000, 60000, 15),
+        ("Batería iPhone 13", "BATERIA", 28000, 45000, 20),
+        ("Cargador USB-C 20W", "ACCESORIO", 8500, 15000, 50),
+        ("Cable Lightning", "ACCESORIO", 5000, 10000, 80),
+        ("Pantalla Xiaomi Redmi Note 11", "PANTALLA", 38000, 55000, 12),
+        ("Batería Samsung S21", "BATERIA", 32000, 50000, 18),
+        ("Módulo Táctil Motorola G60", "PANTALLA", 35000, 52000, 10),
+        ("Funda Silicona Universal", "ACCESORIO", 3500, 7000, 100),
+        ("Vidrio Templado Universal", "ACCESORIO", 2500, 5000, 120),
+        ("Auriculares Bluetooth", "ACCESORIO", 15000, 30000, 30),
     ]
     
-    cursor.execute("DELETE FROM productos")
+    cursor.execute("DELETE FROM repuestos")
     cursor.executemany("""
-        INSERT INTO productos (nombre, categoria, precio_venta, stock_actual, stock_minimo)
+        INSERT INTO repuestos (nombre, categoria, costo, precio_sugerido, stock)
         VALUES (?, ?, ?, ?, ?)
     """, productos)
     
@@ -97,7 +97,7 @@ def poblar_base_datos():
     cliente_ids = [row[0] for row in cursor.fetchall()]
     
     # Obtener ID del técnico
-    cursor.execute("SELECT id FROM usuarios WHERE es_admin = 0 LIMIT 1")
+    cursor.execute("SELECT id FROM usuarios WHERE rol = 'Técnico' LIMIT 1")
     tecnico_row = cursor.fetchone()
     tecnico_id = tecnico_row[0] if tecnico_row else 1
     
@@ -181,7 +181,7 @@ def poblar_base_datos():
     # 7. VENTAS POS (algunas ventas directas)
     print("✓ Creando ventas POS...")
     
-    cursor.execute("SELECT id FROM usuarios WHERE es_admin = 0 LIMIT 1")
+    cursor.execute("SELECT id FROM usuarios WHERE rol = 'Técnico' LIMIT 1")
     usuario_row = cursor.fetchone()
     usuario_id = usuario_row[0] if usuario_row else 1
     

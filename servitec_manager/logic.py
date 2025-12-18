@@ -1261,7 +1261,7 @@ class GESTOR_REPORTES:
 
     def OBTENER_HISTORIAL_COMPLETO_ORDENES(self):
         return self.bd.OBTENER_TODOS("""
-            SELECT o.id, o.fecha, c.nombre AS cliente_nombre, o.equipo || ' ' || o.modelo AS equipo_completo, u.nombre AS tecnico_nombre, o.estado, o.condicion, o.observacion, o.fecha_entrega, (o.presupuesto - COALESCE(o.descuento, 0)) AS total, f.fecha_cierre
+            SELECT o.id, o.fecha, c.nombre AS cliente_nombre, o.equipo || ' ' || o.modelo AS equipo_completo, u.nombre AS tecnico_nombre, o.estado, o.observacion, o.fecha_entrega, (o.presupuesto - COALESCE(o.abono, 0)) AS saldo_pendiente, f.fecha_cierre
             FROM ORDENES o
             LEFT JOIN clientes c ON o.cliente_id = c.id
             LEFT JOIN usuarios u ON o.tecnico_id = u.id

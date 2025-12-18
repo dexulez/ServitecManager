@@ -76,7 +76,7 @@ print("\n4. VERIFICANDO QUERY DE HISTORIAL")
 print("-" * 70)
 cursor.execute("""
     SELECT o.id, o.fecha, c.nombre AS cliente_nombre, o.equipo || ' ' || o.modelo AS equipo_completo, 
-           u.nombre AS tecnico_nombre, o.estado, o.condicion, o.observacion, o.fecha_entrega, 
+           u.nombre AS tecnico_nombre, o.estado, o.observacion, o.fecha_entrega, 
            o.presupuesto, f.fecha_cierre
     FROM ORDENES o
     LEFT JOIN clientes c ON o.cliente_id = c.id
