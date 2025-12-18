@@ -291,16 +291,12 @@ echo ❌ Errores: %ERROR_COUNT%
 echo.
 
 if %ERROR_COUNT% equ 0 (
-    echo ╔═══════════════════════════════════════════════════════════╗
-    echo ║  ✅ MANTENIMIENTO COMPLETADO EXITOSAMENTE                 ║
-    echo ║  El sistema está listo para usar                          ║
-    echo ╚═══════════════════════════════════════════════════════════╝
+    echo MANTENIMIENTO COMPLETADO EXITOSAMENTE
+    echo El sistema esta listo para usar
 ) else (
-    echo ╔═══════════════════════════════════════════════════════════╗
-    echo ║  ⚠️  MANTENIMIENTO CON ADVERTENCIAS                        ║
-    echo ║  Se encontraron %ERROR_COUNT% problema(s)                        ║
-    echo ║  Ejecuta: diagnostico_sistema.bat para más detalles       ║
-    echo ╚═══════════════════════════════════════════════════════════╝
+    echo MANTENIMIENTO CON ADVERTENCIAS
+    echo Se encontraron %ERROR_COUNT% problema(s^)
+    echo Ejecuta: diagnostico_sistema.bat para mas detalles
 )
 
 echo.
