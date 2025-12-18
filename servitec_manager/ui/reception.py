@@ -1671,35 +1671,147 @@ class ReceptionFrame(ctk.CTkFrame):
 
     def select_payment_method(self, amount):
         dialog = ctk.CTkToplevel(self)
-        dialog.title("SELECCIONAR MÉTODO DE PAGO")
-        dialog.geometry("500x450")
+        dialog.title("CONFIRMAR DATOS SERVICIO")
+        dialog.geometry("550x650")
         dialog.attributes("-topmost", True)
         dialog.transient(self)
         dialog.grab_set()
         # Centrar ventana
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (450 // 2)
-        dialog.geometry(f"500x450+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (550 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (650 // 2)
+        dialog.geometry(f"550x650+{x}+{y}")
 
-        ctk.CTkLabel(dialog, text=f"ABONO: ${amount:,.0f}".replace(",", "."), font=("Arial", 16, "bold")).pack(pady=15)
+        # Frame principal con scroll
+        main_frame = ctk.CTkFrame(dialog, fg_color=Theme.BACKGROUND)
+        main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Título
+        ctk.CTkLabel(main_frame, text="CONFIRMAR DATOS SERVICIO", font=(Theme.FONT_FAMILY, 16, "bold"), text_color=Theme.PRIMARY).pack(pady=10)
+        
+        # Sección de datos del servicio
+        service_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
+        service_frame.pack(fill="x", padx=10, pady=10)
+
+        # Servicio
+        ctk.CTkLabel(service_frame, text="SERV: " + self.var_service.get(), font=("Arial", 12, "bold"), text_color=Theme.TEXT_PRIMARY).pack(anchor="w", padx=15, pady=(10, 5))
+        
+        # Costos
+        cost_frame = ctk.CTkFrame(service_frame, fg_color="transparent")
+        cost_frame.pack(fill="x", padx=15, pady=5)
+        ctk.CTkLabel(cost_frame, text="COSTO REPUESTO ($):", font=("Arial", 11)).pack(anchor="w")
+        entry_cost_part = ctk.CTkEntry(cost_frame, width=150, font=("Arial", 11), fg_color=Theme.INPUT_BG)
+        entry_cost_part.pack(anchor="w", pady=3)
+        entry_cost_part.insert(0, "0")
+        
+        ctk.CTkLabel(cost_frame, text="COSTO ENVÍO ($):", font=("Arial", 11)).pack(anchor="w", pady=(10, 0))
+        entry_cost_ship = ctk.CTkEntry(cost_frame, width=150, font=("Arial", 11), fg_color=Theme.INPUT_BG)
+        entry_cost_ship.pack(anchor="w", pady=3)
+        entry_cost_ship.insert(0, "0")
+
+        # Checkbox para IVA
+        var_iva = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(service_frame, text="APLICA IVA (BOLETA/FACTURA)", variable=var_iva).pack(anchor="w", padx=15, pady=(10, 5))
+
+        # Checkbox para pago con tarjeta
+        var_card = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(service_frame, text="PAGO CON TARJETA (COMISIÓN BANCO)", variable=var_card).pack(anchor="w", padx=15, pady=(0, 10))
+
+        # Separador
+        ctk.CTkFrame(main_frame, height=2, fg_color=Theme.DIVIDER).pack(fill="x", pady=10)
+
+        # Método de Pago
+        ctk.CTkLabel(main_frame, text="MÉTODO DE PAGO:", font=("Arial", 12, "bold"), text_color=Theme.TEXT_PRIMARY).pack(anchor="w", padx=15, pady=(10, 5))
         
         payment_method = ctk.StringVar(value="EFECTIVO")
-        
-        ctk.CTkLabel(dialog, text="MÉTODO DE PAGO PRINCIPAL:").pack(anchor="w", padx=20)
         methods = ["EFECTIVO", "TRANSFERENCIA", "DÉBITO", "CRÉDITO", "PAGO MIXTO"]
+        
+        # Frame para métodos de pago
+        payment_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
+        payment_frame.pack(fill="x", padx=10, pady=5)
+        
         for method in methods:
-            ctk.CTkRadioButton(dialog, text=method, variable=payment_method, value=method).pack(anchor="w", padx=40, pady=2)
+            ctk.CTkRadioButton(
+                payment_frame, 
+                text=method, 
+                variable=payment_method, 
+                value=method,
+                font=("Arial", 11)
+            ).pack(anchor="w", padx=15, pady=5)
 
+        # Frame para selección de cuenta bancaria (solo visible si es transferencia)
+        bank_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
+        bank_frame.pack(fill="x", padx=10, pady=5)
+        
+        ctk.CTkLabel(bank_frame, text="SELECCIONAR CUENTA BANCARIA:", font=("Arial", 11, "bold")).pack(anchor="w", padx=15, pady=(10, 5))
+        
+        var_bank_account = ctk.StringVar(value="")
+        
+        # Cargar cuentas bancarias
+        try:
+            from payment_manager import PaymentManager
+            pm = PaymentManager(self.logic.bd)
+            cuentas = pm.obtener_cuentas_activas()
+            cuenta_options = [f"{c[1]} - {c[2]}" for c in cuentas] if cuentas else ["No hay cuentas disponibles"]
+            combo_bank = ctk.CTkComboBox(bank_frame, values=cuenta_options, variable=var_bank_account, state="readonly")
+            combo_bank.pack(fill="x", padx=15, pady=5)
+            if cuenta_options:
+                combo_bank.set(cuenta_options[0])
+        except Exception as e:
+            print(f"Error cargando cuentas bancarias: {e}")
+            ctk.CTkLabel(bank_frame, text="Error cargando cuentas", text_color=Theme.ERROR).pack(padx=15, pady=5)
+        
+        # Mostrar/ocultar frame de banco según el método de pago
+        def on_payment_method_change(*args):
+            if payment_method.get() == "TRANSFERENCIA":
+                bank_frame.pack(fill="x", padx=10, pady=5)
+            else:
+                bank_frame.pack_forget()
+        
+        payment_method.trace("w", on_payment_method_change)
+        bank_frame.pack_forget()  # Ocultar inicialmente
+
+        # Total
+        total_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
+        total_frame.pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(
+            total_frame, 
+            text=f"ABONO: ${amount:,.0f}".replace(",", "."), 
+            font=("Arial", 14, "bold"), 
+            text_color=Theme.PRIMARY
+        ).pack(pady=15)
+
+        # Botones
+        button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
+        button_frame.pack(fill="x", padx=10, pady=10)
+        
         def on_confirm():
-            dialog.result = payment_method.get()
+            try:
+                cost_rep = int(entry_cost_part.get() or "0")
+                cost_ship = int(entry_cost_ship.get() or "0")
+                
+                dialog.result = {
+                    'method': payment_method.get(),
+                    'bank_account': var_bank_account.get() if payment_method.get() == "TRANSFERENCIA" else None,
+                    'cost_part': cost_rep,
+                    'cost_ship': cost_ship,
+                    'iva': var_iva.get(),
+                    'card_commission': var_card.get()
+                }
+            except:
+                messagebox.showerror("Error", "Verifique los valores ingresados", parent=dialog)
+                return
+            
             dialog.destroy()
 
         def on_cancel():
             dialog.result = None
             dialog.destroy()
 
-        ctk.CTkButton(dialog, text="CONFIRMAR PAGO", command=on_confirm, fg_color="green").pack(pady=20)
+        ctk.CTkButton(button_frame, text="✅ CONFIRMAR Y AGREGAR", command=on_confirm, fg_color="green", height=40).pack(side="left", padx=5, fill="x", expand=True)
+        ctk.CTkButton(button_frame, text="❌ CANCELAR", command=on_cancel, fg_color="red", height=40).pack(side="left", padx=5, fill="x", expand=True)
+        
         dialog.protocol("WM_DELETE_WINDOW", on_cancel)
         
         self.wait_window(dialog)
@@ -1724,11 +1836,13 @@ class ReceptionFrame(ctk.CTkFrame):
         # Validar abono y método de pago
         abo = self.clean_money(self.var_deposit.get())
         metodo_pago = None
+        pago_info = None
         if abo > 0:
-            metodo_pago = self.select_payment_method(abo)
-            if not metodo_pago:
+            pago_info = self.select_payment_method(abo)
+            if not pago_info:
                 messagebox.showwarning("ABONO SIN MÉTODO", "Debe seleccionar un método de pago para el abono.")
                 return
+            metodo_pago = pago_info.get('method')
         
         tid = self.tech_map.get(self.combo_tech.get()) or 1
         acc = []
@@ -1886,11 +2000,43 @@ class ReceptionFrame(ctk.CTkFrame):
                     else:
                         print(f"DEBUG: No se creará pedido - repuesto no seleccionado o es SIN REPUESTO")
                     
-                    # TODO: Registrar el abono en caja cuando la funcionalidad esté implementada
-                    # if abo > 0 and metodo_pago:
-                    #     exito, mensaje = self.logic.caja.REGISTRAR_INGRESO(abo, metodo_pago, f"ABONO ORDEN #{oid}", orden_id=oid)
-                    #     if not exito:
-                    #         messagebox.showerror("ERROR DE CAJA", f"No se pudo registrar el abono en caja.\n\n{mensaje}\n\nLa orden #{oid} fue creada, pero deberá registrar el abono manualmente en el módulo de Caja.")
+                    # Procesar pago si existe
+                    if abo > 0 and pago_info:
+                        try:
+                            from payment_manager import PaymentManager
+                            pm = PaymentManager(self.logic.bd)
+                            
+                            metodo = pago_info.get('method')
+                            cuenta_id = None
+                            
+                            # Si es transferencia, obtener ID de la cuenta seleccionada
+                            if metodo == "TRANSFERENCIA":
+                                banco_str = pago_info.get('bank_account', '')
+                                if banco_str:
+                                    # Formato "BANCO - NUMERO"
+                                    numero_cuenta = banco_str.split(' - ')[-1] if ' - ' in banco_str else banco_str
+                                    # Buscar el ID de la cuenta en la BD
+                                    query = "SELECT id FROM cuentas_bancarias WHERE numero_cuenta = ? AND activa = 1"
+                                    result = self.logic.bd.OBTENER_UNO(query, (numero_cuenta,))
+                                    cuenta_id = result[0] if result else None
+                            
+                            # Procesar el pago
+                            resultado = pm.procesar_pago(oid, abo, metodo, cuenta_id)
+                            
+                            if resultado.get('success'):
+                                if metodo in ['DEBITO', 'CREDITO']:
+                                    boleta = resultado.get('boleta')
+                                    print(f"✓ Boleta #{boleta.get('numero')} creada automáticamente (IVA incluido)")
+                                elif metodo == 'TRANSFERENCIA':
+                                    print(f"✓ Transferencia registrada a cuenta #{cuenta_id}")
+                                else:
+                                    print(f"✓ Pago en {metodo} registrado")
+                            else:
+                                print(f"⚠ Error procesando pago: {resultado.get('error')}")
+                        except Exception as e:
+                            print(f"⚠ Error al procesar pago: {e}")
+                            import traceback
+                            traceback.print_exc()
                     
                     if messagebox.askyesno("ORDEN GUARDADA", f"ORDEN #{oid} GENERADA EXITOSAMENTE.\n\n¿DESEA IMPRIMIR EL TICKET AHORA?"):
                         full_data = self.logic.orders.get_ticket_data(oid)
