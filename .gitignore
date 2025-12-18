@@ -94,6 +94,7 @@ servitec_manager/reports/**/*.pdf
 !desinstalar_servitec.bat
 !gestor_backups.bat
 !diagnostico_sistema.bat
+!mantenimiento_completo.bat
 
 # === Datos de Prueba ===
 *_test_data.py
