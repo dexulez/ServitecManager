@@ -1,6 +1,7 @@
 import customtkinter as ctk
 from tkinter import messagebox
 from .theme import Theme
+from .bank_accounts import BankAccountsFrame
 
 class AdminFrame(ctk.CTkFrame):
     def __init__(self, parent, logic, current_user, app=None):
@@ -8,13 +9,34 @@ class AdminFrame(ctk.CTkFrame):
         self.logic = logic
         self.app = app
         
+        # Crear TabView para Usuarios y Cuentas Bancarias
+        self.tabview = ctk.CTkTabview(
+            self,
+            fg_color=Theme.SURFACE,
+            segmented_button_fg_color=Theme.BACKGROUND_LIGHT,
+            segmented_button_selected_color=Theme.PRIMARY,
+            text_color=Theme.TEXT_PRIMARY
+        )
+        self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Tab de Usuarios
+        self.tab_usuarios = self.tabview.add("👥 USUARIOS")
+        self.setup_usuarios_tab()
+        
+        # Tab de Cuentas Bancarias
+        self.tab_banco = self.tabview.add("🏦 CUENTAS BANCARIAS")
+        self.banco_frame = BankAccountsFrame(self.tab_banco, logic, current_user)
+        self.banco_frame.pack(fill="both", expand=True)
+
+    def setup_usuarios_tab(self):
+        """Configura el tab de usuarios"""
         # GRID LAYOUT
-        self.grid_columnconfigure(0, weight=1) # Lista
-        self.grid_columnconfigure(1, weight=1) # Formulario
-        self.grid_rowconfigure(0, weight=1)
+        self.tab_usuarios.grid_columnconfigure(0, weight=1) # Lista
+        self.tab_usuarios.grid_columnconfigure(1, weight=1) # Formulario
+        self.tab_usuarios.grid_rowconfigure(0, weight=1)
 
         # --- LISTA DE USUARIOS ---
-        left_panel = ctk.CTkFrame(self, **Theme.get_card_style())
+        left_panel = ctk.CTkFrame(self.tab_usuarios, **Theme.get_card_style())
         left_panel.grid(row=0, column=0, sticky="nsew", padx=10, pady=10)
         
         # Header
@@ -31,7 +53,7 @@ class AdminFrame(ctk.CTkFrame):
         self.scroll_users.pack(fill="both", expand=True, pady=10, padx=Theme.PADDING_MEDIUM)
 
         # --- FORMULARIO NUEVO ---
-        right_panel = ctk.CTkFrame(self, **Theme.get_card_style())
+        right_panel = ctk.CTkFrame(self.tab_usuarios, **Theme.get_card_style())
         right_panel.grid(row=0, column=1, sticky="nsew", padx=10, pady=10)
         
         # Header
