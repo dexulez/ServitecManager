@@ -1500,11 +1500,11 @@ class ReceptionFrame(ctk.CTkFrame):
         self.btn_generate_order.configure(text=f"ACTUALIZAR ORDEN #{order_id}")
         
         # Cargar datos del cliente (índices del query: o.*, c.rut, c.nombre, c.telefono, c.email)
-        # ordenes tiene 17 columnas (0-16), entonces: [17]=rut, [18]=nombre, [19]=telefono, [20]=email
-        self.var_rut.set(order_data[17])
-        self.var_name.set(order_data[18])
-        self.var_tel.set(order_data[19] if order_data[19] else "")
-        self.var_email.set(order_data[20] if order_data[20] else "")
+        # ordenes tiene 16 columnas (0-15) con descuento, entonces: [16]=rut, [17]=nombre, [18]=telefono, [19]=email
+        self.var_rut.set(order_data[16])
+        self.var_name.set(order_data[17])
+        self.var_tel.set(order_data[18] if order_data[18] else "")
+        self.var_email.set(order_data[19] if order_data[19] else "")
         self.selected_client_rut = order_data[17]
         
         # Cargar datos del equipo
@@ -1543,8 +1543,8 @@ class ReceptionFrame(ctk.CTkFrame):
         
         # Presupuesto, Descuento y Abono
         self.var_price.set(str(int(order_data[12])))
-        self.var_discount.set(str(int(order_data[16])) if order_data[16] else "0")
-        self.var_deposit.set(str(int(order_data[13])) if order_data[13] else "0")
+        self.var_discount.set(str(int(order_data[13])) if order_data[13] else "0")
+        self.var_deposit.set(str(int(order_data[14])) if order_data[14] else "0")
         
         # Cargar técnico asignado
         tech_id = order_data[2]

@@ -173,6 +173,7 @@ class GESTOR_BASE_DATOS:
                 accesorios TEXT,
                 riesgoso INTEGER,
                 presupuesto REAL DEFAULT 0,
+                descuento REAL DEFAULT 0,
                 abono REAL DEFAULT 0,
                 fecha_entrega TEXT,
                 FOREIGN KEY(cliente_id) REFERENCES clientes(id)
