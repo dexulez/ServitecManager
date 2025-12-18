@@ -367,8 +367,11 @@ class WorkshopFrame(ctk.CTkFrame):
         
         # Guardar costos en detalles_orden para que se carguen automáticamente en POS
         try:
+            print(f"DEBUG WORKSHOP: Intentando guardar - Orden ID: {self.selected_order_id}, Repuestos: {costo_repuesto}, Envío: {costo_envio}")
+            
             # Eliminar detalles_orden anteriores para esta orden
             self.logic.bd.EJECUTAR_CONSULTA("DELETE FROM detalles_orden WHERE orden_id = ?", (self.selected_order_id,))
+            print(f"DEBUG WORKSHOP: Eliminadas órdenes anteriores para orden {self.selected_order_id}")
             
             # Insertar costo de repuestos si es > 0
             if costo_repuesto > 0:
@@ -376,6 +379,7 @@ class WorkshopFrame(ctk.CTkFrame):
                     "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
                     (self.selected_order_id, 'REPUESTO', 'Costo de Repuestos', costo_repuesto, 1)
                 )
+                print(f"DEBUG WORKSHOP: Insertado REPUESTO - Orden: {self.selected_order_id}, Costo: {costo_repuesto}")
             
             # Insertar costo de envío si es > 0
             if costo_envio > 0:
@@ -383,10 +387,14 @@ class WorkshopFrame(ctk.CTkFrame):
                     "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
                     (self.selected_order_id, 'ENVIO', 'Costo de Envío', costo_envio, 1)
                 )
+                print(f"DEBUG WORKSHOP: Insertado ENVIO - Orden: {self.selected_order_id}, Costo: {costo_envio}")
             
-            print(f"DEBUG WORKSHOP: Costos guardados en detalles_orden - Repuestos: ${costo_repuesto}, Envío: ${costo_envio}")
+            # Verificar qué se guardó
+            verificar = self.logic.bd.OBTENER_TODOS("SELECT orden_id, tipo_item, costo FROM detalles_orden WHERE orden_id = ?", (self.selected_order_id,))
+            print(f"DEBUG WORKSHOP: Verificación de guardado - Registros en detalles_orden: {verificar}")
+            
         except Exception as e:
-            print(f"Error al guardar costos en detalles_orden: {e}")
+            print(f"ERROR al guardar costos en detalles_orden: {e}")
             import traceback
             traceback.print_exc()
         

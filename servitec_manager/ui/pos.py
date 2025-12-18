@@ -388,19 +388,26 @@ class POSFrame(ctk.CTkFrame):
             WHERE orden_id = ? 
             GROUP BY tipo_item
             """
+            print(f"DEBUG POS: Ejecutando query para orden_id: {order_id}")
             resultados = self.logic.bd.OBTENER_TODOS(query, (order_id,))
+            print(f"DEBUG POS: Resultados de query: {resultados}")
             
             if resultados:
                 for row in resultados:
                     tipo = row[0] if isinstance(row, tuple) else row.get('tipo_item', '')
                     costo = row[1] if isinstance(row, tuple) else row.get('total_costo', 0)
+                    print(f"DEBUG POS: Procesando fila - tipo: {tipo}, costo: {costo}")
                     
                     if 'REPUESTO' in str(tipo).upper():
                         costo_rep = int(costo) if costo else 0
+                        print(f"DEBUG POS: Costo REPUESTO asignado: {costo_rep}")
                     elif 'ENVIO' in str(tipo).upper():
                         costo_env = int(costo) if costo else 0
-                
-                print(f"DEBUG POS: Costos cargados - Repuestos: ${costo_rep}, Envío: ${costo_env}")
+                        print(f"DEBUG POS: Costo ENVIO asignado: {costo_env}")
+            else:
+                print(f"DEBUG POS: NO se encontraron resultados en detalles_orden para orden {order_id}")
+            
+            print(f"DEBUG POS: Costos finales - Repuestos: ${costo_rep}, Envío: ${costo_env}")
             
             # Formatear con miles
             if costo_rep > 0:
@@ -409,7 +416,7 @@ class POSFrame(ctk.CTkFrame):
                 v_env.set(f"{costo_env:,}".replace(",", "."))
                 
         except Exception as e:
-            print(f"Error cargando costos de detalles_orden: {e}")
+            print(f"ERROR cargando costos de detalles_orden: {e}")
             import traceback
             traceback.print_exc()
         
@@ -469,7 +476,25 @@ class POSFrame(ctk.CTkFrame):
         user_id = self.current_user['id'] if isinstance(self.current_user, dict) else self.current_user[0]
         sesion_activa = self.logic.cash.get_active_session(user_id)
         if not sesion_activa:
-            messagebox.showerror("❌ CAJA CERRADA", "Debe abrir un turno antes de realizar cobros.\n\nVaya al módulo de CAJA y abra el turno.")
+            # Ofrecer abrir caja rápidamente
+            from tkinter import simpledialog
+            respuesta = messagebox.askyesno(
+                "❌ CAJA CERRADA", 
+                "La caja está cerrada.\n\n¿Desea abrir un nuevo turno ahora para proceder con el cobro?"
+            )
+            if respuesta:
+                # Intentar abrir caja automáticamente
+                try:
+                    monto_inicial = simpledialog.askfloat("ABRIR CAJA", "Ingrese monto inicial de caja:", minvalue=0)
+                    if monto_inicial is not None:
+                        self.logic.cash.open_shift(user_id, monto_inicial)
+                        messagebox.showinfo("✅ CAJA ABIERTA", "Turno abierto correctamente. Proceda con el cobro.")
+                        # Reintentar checkout
+                        self.checkout()
+                        return
+                except Exception as e:
+                    messagebox.showerror("Error", f"No se pudo abrir la caja: {e}")
+                    return
             return
         
         # 2️⃣ CALCULAR TOTAL CONSIDERANDO ABONOSY DESCUENTOS
