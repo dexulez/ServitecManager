@@ -64,6 +64,48 @@ def EJECUTAR_MIGRACIONES():
             conn.commit()
             print("✅ Migración completada: columna 'descuento' agregada")
         
+        # Crear tabla de cuentas bancarias si no existe
+        try:
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS cuentas_bancarias (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                banco TEXT NOT NULL,
+                numero_cuenta TEXT NOT NULL UNIQUE,
+                tipo_cuenta TEXT,
+                titular TEXT NOT NULL,
+                rut_titular TEXT,
+                notas TEXT,
+                activa INTEGER DEFAULT 1,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            conn.commit()
+            print("✅ Tabla 'cuentas_bancarias' lista")
+        except Exception as e:
+            print(f"⚠️ Error creando tabla cuentas_bancarias: {e}")
+        
+        # Crear tabla de boletas si no existe
+        try:
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS boletas (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                orden_id INTEGER NOT NULL,
+                numero_boleta TEXT UNIQUE,
+                fecha_emision TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                monto_neto REAL,
+                iva REAL,
+                monto_total REAL,
+                metodo_pago TEXT,
+                estado TEXT DEFAULT 'EMITIDA',
+                observaciones TEXT,
+                FOREIGN KEY(orden_id) REFERENCES ordenes(id)
+            )
+            """)
+            conn.commit()
+            print("✅ Tabla 'boletas' lista")
+        except Exception as e:
+            print(f"⚠️ Error creando tabla boletas: {e}")
+        
         conn.close()
     except Exception as e:
         print(f"⚠️ Error en migración: {e}")
