@@ -30,6 +30,12 @@ class APLICACION(ctk.CTk):
         
         self.usuario_actual = None
         self.frames = {}
+        
+        # Variables para sistema de inactividad (5 minutos = 300000 ms)
+        self.inactividad_timeout = 5 * 60 * 1000  # 5 minutos en milisegundos
+        self.inactividad_timer = None
+        self.frame_actual = None
+        self.frames_excluidos_inactividad = ["Dashboard", "POS"]  # No aplicar inactividad a estos
 
         self.grid_columnconfigure(0, weight=0, minsize=350)  # Sidebar con ancho fijo de 350px
         self.grid_columnconfigure(1, weight=1)
@@ -179,7 +185,10 @@ class APLICACION(ctk.CTk):
         
         # === MENÚ PRINCIPAL POR ROL ===
         
-        # === 0. TURNOS ===
+        # === 0. DASHBOARD (Acceso directo) ===
+        crear_botón_menu(menu_scroll, "📊", "Dashboard", lambda: self.mostrar_frame("Dashboard"))
+        
+        # === 1. TURNOS ===
         if rol in ['RECEPCIONISTA', 'ADMINISTRADOR', 'GERENTE']:
             turnos_items = [
                 ("💰", "Caja", lambda: self.mostrar_frame("Cash")),
@@ -187,11 +196,11 @@ class APLICACION(ctk.CTk):
             ]
             crear_seccion_colapsable("💵", "Turnos", turnos_items)
         
-        # === 1. POS / VENTAS ===
+        # === 2. POS / VENTAS ===
         if rol in ['RECEPCIONISTA', 'ADMINISTRADOR', 'GERENTE']:
             crear_botón_menu(menu_scroll, "🛒", "POS / Ventas", lambda: self.mostrar_frame("POS"))
         
-        # === 2. ÓRDENES ===
+        # === 3. ÓRDENES ===
         if rol in ['RECEPCIONISTA', 'ADMINISTRADOR', 'GERENTE', 'TECNICO']:
             ordenes_items = []
             
@@ -204,11 +213,11 @@ class APLICACION(ctk.CTk):
             if ordenes_items:
                 crear_seccion_colapsable("📋", "Órdenes", ordenes_items)
         
-        # === 3. HISTORIAL ===
+        # === 4. HISTORIAL ===
         if rol in ['ADMINISTRADOR', 'GERENTE', 'TECNICO', 'RECEPCIONISTA']:
             crear_botón_menu(menu_scroll, "📜", "Historial", lambda: self.mostrar_frame("History"))
         
-        # === 4. INVENTARIOS Y COMPRAS ===
+        # === 5. INVENTARIOS Y COMPRAS ===
         if rol in ['ADMINISTRADOR', 'GERENTE']:
             inventario_items = [
                 ("📦", "Productos", lambda: self.mostrar_frame("Inventory")),
@@ -219,7 +228,7 @@ class APLICACION(ctk.CTk):
             ]
             crear_seccion_colapsable("📦", "Inventarios\ny Compras", inventario_items)
         
-        # === 5. ADMINISTRACIÓN ===
+        # === 6. ADMINISTRACIÓN ===
         if rol in ['GERENTE', 'ADMINISTRADOR']:
             admin_items = [
                 ("👥", "Usuarios", lambda: self.mostrar_frame("Admin")),
@@ -273,9 +282,38 @@ class APLICACION(ctk.CTk):
         if rol == 'TECNICO': inicio = "Workshop"
         elif rol == 'GERENTE': inicio = "Dashboard"
         self.mostrar_frame(inicio)
+        
+        # Vincular eventos de actividad del usuario
+        self.bind("<Motion>", self._resetear_inactividad)
+        self.bind("<Key>", self._resetear_inactividad)
+        self.bind("<Button>", self._resetear_inactividad)
 
+    def _resetear_inactividad(self, event=None):
+        """Resetea el timer de inactividad cuando hay actividad del usuario"""
+        if self.frame_actual not in self.frames_excluidos_inactividad:
+            # Cancelar timer anterior si existe
+            if self.inactividad_timer is not None:
+                self.after_cancel(self.inactividad_timer)
+            
+            # Establecer nuevo timer
+            self.inactividad_timer = self.after(
+                self.inactividad_timeout,
+                self._inactividad_timeout
+            )
+    
+    def _inactividad_timeout(self):
+        """Se ejecuta cuando se agota el tiempo de inactividad"""
+        if self.frame_actual not in self.frames_excluidos_inactividad:
+            print(f"⏱️  Inactividad detectada por 5 minutos. Redirigiendo a Dashboard...")
+            self.mostrar_frame("Dashboard")
+    
     def mostrar_frame(self, nombre, datos=None, filtro=None):
         for frame in self.frames.values(): frame.pack_forget()
+        
+        # Guardar frame actual y resetear timer de inactividad
+        self.frame_actual = nombre
+        self._resetear_inactividad()
+        
         if nombre in self.frames:
             f = self.frames[nombre]
             
