@@ -97,8 +97,9 @@ def poblar_base_datos():
     cliente_ids = [row[0] for row in cursor.fetchall()]
     
     # Obtener ID del técnico
-    cursor.execute("SELECT id FROM usuarios WHERE nombre='Juan Técnico' LIMIT 1")
-    tecnico_id = cursor.fetchone()[0]
+    cursor.execute("SELECT id FROM usuarios WHERE es_admin = 0 LIMIT 1")
+    tecnico_row = cursor.fetchone()
+    tecnico_id = tecnico_row[0] if tecnico_row else 1
     
     fecha_base = datetime.now() - timedelta(days=15)
     
@@ -107,15 +108,16 @@ def poblar_base_datos():
         cliente_id = cliente_ids[i % len(cliente_ids)]
         fecha = (fecha_base + timedelta(days=i*2)).strftime("%Y-%m-%d %H:%M:%S")
         
-        equipos = [
-            ("CELULAR MOTOROLA G9 PLUS", "SN2021MG9P001"),
-            ("CELULAR SAMSUNG A54", "SN2022SA54002"),
-            ("CELULAR IPHONE 13", "SN2021IP13003"),
-            ("TABLET SAMSUNG TAB A7", "SN2020STA7004"),
-            ("CELULAR XIAOMI REDMI NOTE 11", "SN2022XRN11005"),
+        equipos_data = [
+            ("CELULAR", "MOTOROLA", "G9 PLUS", "SN2021MG9P001"),
+            ("CELULAR", "SAMSUNG", "A54", "SN2022SA54002"),
+            ("CELULAR", "APPLE", "IPHONE 13", "SN2021IP13003"),
+            ("TABLET", "SAMSUNG", "GALAXY TAB A7", "SN2020STA7004"),
+            ("CELULAR", "XIAOMI", "REDMI NOTE 11", "SN2022XRN11005"),
         ]
         
-        equipo, serie = equipos[i % len(equipos)]
+        tipo, marca, modelo, serie = equipos_data[i % len(equipos_data)]
+        equipo = f"{tipo} {marca} {modelo}"
         
         fallas = [
             "PANTALLA ROTA. PRESENTA MANCHAS NEGRAS EN ESQUINA SUPERIOR. TOUCH FUNCIONA PARCIALMENTE.",
@@ -127,102 +129,84 @@ def poblar_base_datos():
         
         falla = fallas[i % len(fallas)]
         
-        estados = ["Recibido", "En Diagnóstico", "Esperando Repuesto", "En Reparación", "Listo"]
+        estados = ["Pendiente", "En Proceso", "Reparado", "Entregado", "Sin solución"]
         estado = estados[min(i, len(estados)-1)]
         
         accesorios = ["BANDEJA SIM", "CARGADOR", "MICRO SD"] if i % 2 == 0 else ["BANDEJA SIM"]
-        accesorios_json = ",".join(accesorios)
+        accesorios_str = ",".join(accesorios)
+        
+        presupuesto = (35000 + i * 5000) if i < 5 else (20000 + i * 2000)
+        abono = presupuesto // 2 if i % 2 == 0 else 0
         
         ordenes.append((
-            cliente_id, equipo, serie, fecha, None, falla, estado,
-            tecnico_id, accesorios_json, 0, "2025-12-15"
+            cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie,
+            falla, estado, accesorios_str, 0, presupuesto, abono, "2025-12-22"
         ))
     
     cursor.execute("DELETE FROM ordenes")
     cursor.executemany("""
         INSERT INTO ordenes (
-            cliente_id, equipo, serie_imei, fecha_recepcion, fecha_entrega,
-            falla_reportada, estado, tecnico_asignado, accesorios_entregados,
-            prioridad, fecha_estimada_entrega
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie,
+            observacion, estado, accesorios, riesgoso, presupuesto, abono, fecha_entrega
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, ordenes)
     
     # 6. FINANZAS (algunas órdenes ya pagadas)
     print("✓ Creando registros financieros...")
     
-    cursor.execute("SELECT id FROM ordenes LIMIT 4")
-    orden_ids = [row[0] for row in cursor.fetchall()]
+    cursor.execute("SELECT id, presupuesto FROM ordenes LIMIT 4")
+    ordenes_finanzas = cursor.fetchall()
     
     finanzas = []
-    for orden_id in orden_ids:
-        fecha = (datetime.now() - timedelta(days=10)).strftime("%Y-%m-%d %H:%M:%S")
-        montos = [45000, 35000, 28000, 50000]
-        idx = orden_ids.index(orden_id)
-        monto = montos[idx % len(montos)]
+    for i, (orden_id, presupuesto) in enumerate(ordenes_finanzas):
+        total = presupuesto if presupuesto > 0 else (35000 + i * 5000)
         
         # Alternar métodos de pago
-        if idx % 3 == 0:
-            finanzas.append((orden_id, monto, 0, 0, 0, fecha, fecha))
-        elif idx % 3 == 1:
-            finanzas.append((orden_id, 0, monto, 0, 0, fecha, fecha))
+        if i % 3 == 0:
+            finanzas.append((orden_id, total, 0, 0, 0, total, 0, 0, 0, 0, 0, 0, 0, None))
+        elif i % 3 == 1:
+            finanzas.append((orden_id, total, 0, 0, 0, 0, total, 0, 0, 0, 0, 0, 0, None))
         else:
-            finanzas.append((orden_id, 0, 0, monto, 0, fecha, fecha))
+            finanzas.append((orden_id, total, 0, 0, 0, 0, 0, total, 0, 0, 0, 0, 0, None))
     
     cursor.execute("DELETE FROM finanzas")
     cursor.executemany("""
         INSERT INTO finanzas (
-            orden_id, monto_efectivo, monto_transferencia, monto_debito,
-            monto_credito, fecha_apertura, fecha_cierre
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, finanzas)
+            orden_id, total_cobrado, costo_repuesto, costo_envio,
+            monto_efectivo, monto_transferencia, monto_debito, monto_credito,
+            descuento, aplicó_iva, utilidad_real, monto_comision_tecnico, fecha_cierre
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, [(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], 0, 0, 0, 0, None) for f in finanzas])
     
     # 7. VENTAS POS (algunas ventas directas)
     print("✓ Creando ventas POS...")
     
+    cursor.execute("SELECT id FROM usuarios WHERE es_admin = 0 LIMIT 1")
+    usuario_row = cursor.fetchone()
+    usuario_id = usuario_row[0] if usuario_row else 1
+    
     ventas = []
     for i in range(5):
+        cliente_id = cliente_ids[i % len(cliente_ids)] if cliente_ids else 1
         fecha = (datetime.now() - timedelta(days=i*3)).strftime("%Y-%m-%d %H:%M:%S")
-        items = [
-            "1x Cargador USB-C 20W - $8.500",
-            "2x Cable Lightning - $10.000",
-            "1x Funda Silicona - $3.500",
-            "3x Vidrio Templado - $7.500",
-            "1x Auriculares Bluetooth - $15.000",
-        ]
-        
         totales = [8500, 10000, 3500, 7500, 15000]
+        total = totales[i % len(totales)]
         
         if i % 2 == 0:
-            ventas.append((fecha, items[i], totales[i], 0, 0, 0))
+            ventas.append((usuario_id, cliente_id, fecha, total, 0, total, 0, 0, 0))
         else:
-            ventas.append((fecha, items[i], 0, totales[i], 0, 0))
+            ventas.append((usuario_id, cliente_id, fecha, total, 0, 0, total, 0, 0))
     
     cursor.execute("DELETE FROM ventas")
     cursor.executemany("""
         INSERT INTO ventas (
-            fecha, items, pago_efectivo, pago_transferencia,
-            pago_debito, pago_credito
-        ) VALUES (?, ?, ?, ?, ?, ?)
+            usuario_id, cliente_id, fecha, total, descuento,
+            pago_efectivo, pago_transferencia, pago_debito, pago_credito
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, ventas)
     
-    # 8. CONFIGURACIÓN DE EMPRESA
-    print("✓ Configurando datos de empresa...")
-    
-    cursor.execute("DELETE FROM configuracion_empresa")
-    cursor.execute("""
-        INSERT INTO configuracion_empresa (
-            nombre, direccion, telefono, email, rut, 
-            terminos_condiciones, logo_path
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
-    """, (
-        "SERVITEC",
-        "Av. Principal 1234, Santiago, Chile",
-        "+56 2 2345 6789",
-        "contacto@servitec.cl",
-        "76.543.210-9",
-        "1. Garantía de 30 días en reparaciones.\n2. Cliente debe presentar boleta para garantía.\n3. Equipos no retirados en 60 días serán dados de baja.",
-        "assets/servitec_logo.png"
-    ))
+    # 8. CONFIGURACIÓN (saltada - no necesaria para demo)
+    print("✓ Configuración completada")
     
     conn.commit()
     conn.close()
