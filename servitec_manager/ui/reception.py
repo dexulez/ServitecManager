@@ -1670,58 +1670,32 @@ class ReceptionFrame(ctk.CTkFrame):
         else: self.logic.clients.add_client(r, n, t, self.var_email.get()); messagebox.showinfo("OK", "Registrado"); self.var_search.set(r); self.search_client()
 
     def select_payment_method(self, amount):
+        """Diálogo SIMPLE solo para seleccionar método de pago en RECEPCIÓN"""
         dialog = ctk.CTkToplevel(self)
-        dialog.title("CONFIRMAR DATOS SERVICIO")
-        dialog.geometry("550x650")
+        dialog.title("SELECCIONAR MÉTODO DE PAGO")
+        dialog.geometry("450x350")
         dialog.attributes("-topmost", True)
         dialog.transient(self)
         dialog.grab_set()
         # Centrar ventana
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (550 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (650 // 2)
-        dialog.geometry(f"550x650+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (350 // 2)
+        dialog.geometry(f"450x350+{x}+{y}")
 
-        # Frame principal con scroll
+        # Frame principal
         main_frame = ctk.CTkFrame(dialog, fg_color=Theme.BACKGROUND)
         main_frame.pack(fill="both", expand=True, padx=10, pady=10)
 
         # Título
-        ctk.CTkLabel(main_frame, text="CONFIRMAR DATOS SERVICIO", font=(Theme.FONT_FAMILY, 16, "bold"), text_color=Theme.PRIMARY).pack(pady=10)
+        ctk.CTkLabel(main_frame, text="ABONO DE LA ORDEN", font=(Theme.FONT_FAMILY, 16, "bold"), text_color=Theme.PRIMARY).pack(pady=10)
+        ctk.CTkLabel(main_frame, text=f"Monto: ${amount:,.0f}".replace(",", "."), font=("Arial", 12), text_color=Theme.TEXT_PRIMARY).pack(pady=5)
         
-        # Sección de datos del servicio
-        service_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
-        service_frame.pack(fill="x", padx=10, pady=10)
-
-        # Servicio
-        ctk.CTkLabel(service_frame, text="SERV: " + self.var_service.get(), font=("Arial", 12, "bold"), text_color=Theme.TEXT_PRIMARY).pack(anchor="w", padx=15, pady=(10, 5))
-        
-        # Costos
-        cost_frame = ctk.CTkFrame(service_frame, fg_color="transparent")
-        cost_frame.pack(fill="x", padx=15, pady=5)
-        ctk.CTkLabel(cost_frame, text="COSTO REPUESTO ($):", font=("Arial", 11)).pack(anchor="w")
-        entry_cost_part = ctk.CTkEntry(cost_frame, width=150, font=("Arial", 11), fg_color=Theme.INPUT_BG)
-        entry_cost_part.pack(anchor="w", pady=3)
-        entry_cost_part.insert(0, "0")
-        
-        ctk.CTkLabel(cost_frame, text="COSTO ENVÍO ($):", font=("Arial", 11)).pack(anchor="w", pady=(10, 0))
-        entry_cost_ship = ctk.CTkEntry(cost_frame, width=150, font=("Arial", 11), fg_color=Theme.INPUT_BG)
-        entry_cost_ship.pack(anchor="w", pady=3)
-        entry_cost_ship.insert(0, "0")
-
-        # Checkbox para IVA
-        var_iva = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(service_frame, text="APLICA IVA (BOLETA/FACTURA)", variable=var_iva).pack(anchor="w", padx=15, pady=(10, 5))
-
-        # Checkbox para pago con tarjeta
-        var_card = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(service_frame, text="PAGO CON TARJETA (COMISIÓN BANCO)", variable=var_card).pack(anchor="w", padx=15, pady=(0, 10))
-
         # Separador
         ctk.CTkFrame(main_frame, height=2, fg_color=Theme.DIVIDER).pack(fill="x", pady=10)
 
         # Método de Pago
-        ctk.CTkLabel(main_frame, text="MÉTODO DE PAGO:", font=("Arial", 12, "bold"), text_color=Theme.TEXT_PRIMARY).pack(anchor="w", padx=15, pady=(10, 5))
+        ctk.CTkLabel(main_frame, text="SELECCIONE MÉTODO DE PAGO:", font=("Arial", 12, "bold"), text_color=Theme.TEXT_PRIMARY).pack(anchor="w", padx=15, pady=(10, 5))
         
         payment_method = ctk.StringVar(value="EFECTIVO")
         methods = ["EFECTIVO", "TRANSFERENCIA", "DÉBITO", "CRÉDITO", "PAGO MIXTO"]
@@ -1771,45 +1745,22 @@ class ReceptionFrame(ctk.CTkFrame):
         payment_method.trace("w", on_payment_method_change)
         bank_frame.pack_forget()  # Ocultar inicialmente
 
-        # Total
-        total_frame = ctk.CTkFrame(main_frame, fg_color=Theme.SURFACE, corner_radius=10)
-        total_frame.pack(fill="x", padx=10, pady=10)
-        
-        ctk.CTkLabel(
-            total_frame, 
-            text=f"ABONO: ${amount:,.0f}".replace(",", "."), 
-            font=("Arial", 14, "bold"), 
-            text_color=Theme.PRIMARY
-        ).pack(pady=15)
-
         # Botones
         button_frame = ctk.CTkFrame(main_frame, fg_color="transparent")
-        button_frame.pack(fill="x", padx=10, pady=10)
+        button_frame.pack(fill="x", padx=10, pady=(20, 10))
         
         def on_confirm():
-            try:
-                cost_rep = int(entry_cost_part.get() or "0")
-                cost_ship = int(entry_cost_ship.get() or "0")
-                
-                dialog.result = {
-                    'method': payment_method.get(),
-                    'bank_account': var_bank_account.get() if payment_method.get() == "TRANSFERENCIA" else None,
-                    'cost_part': cost_rep,
-                    'cost_ship': cost_ship,
-                    'iva': var_iva.get(),
-                    'card_commission': var_card.get()
-                }
-            except:
-                messagebox.showerror("Error", "Verifique los valores ingresados", parent=dialog)
-                return
-            
+            dialog.result = {
+                'method': payment_method.get(),
+                'bank_account': var_bank_account.get() if payment_method.get() == "TRANSFERENCIA" else None
+            }
             dialog.destroy()
 
         def on_cancel():
             dialog.result = None
             dialog.destroy()
 
-        ctk.CTkButton(button_frame, text="✅ CONFIRMAR Y AGREGAR", command=on_confirm, fg_color="green", height=40).pack(side="left", padx=5, fill="x", expand=True)
+        ctk.CTkButton(button_frame, text="✅ CONFIRMAR", command=on_confirm, fg_color="green", height=40).pack(side="left", padx=5, fill="x", expand=True)
         ctk.CTkButton(button_frame, text="❌ CANCELAR", command=on_cancel, fg_color="red", height=40).pack(side="left", padx=5, fill="x", expand=True)
         
         dialog.protocol("WM_DELETE_WINDOW", on_cancel)
