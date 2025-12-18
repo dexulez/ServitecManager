@@ -1,0 +1,275 @@
+================================================================================
+                    PUNTOS DE RESTAURACIÓN DEL PROYECTO
+                              ServitecManager
+================================================================================
+
+Este documento mantiene un registro de los PUNTOS CRÍTICOS del proyecto.
+Cada punto representa un estado estable y funcional del sistema.
+
+Si algo falla, se puede restaurar a cualquiera de estos puntos usando:
+    git checkout <NOMBRE_PUNTO>
+
+================================================================================
+                            PUNTOS CRÍTICOS
+================================================================================
+
+🔴 PUNTO CRÍTICO #1: ESTADO ACTUAL (Diciembre 18, 2025)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Nombre de Restauración: PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+Commit: c5af5c7
+Fecha: December 18, 2025
+
+ESTADO DEL SISTEMA:
+✅ Base de datos: Estructura completa con 21 tablas funcionales
+✅ Tablas críticas: USUARIOS, CLIENTES, ORDENES, FINANZAS, CAJA_SESIONES
+✅ Integridad de datos: Índices corregidos, columna 'descuento' agregada
+✅ UI Dashboard: Colores pasteles suaves aplicados
+✅ Badges de estado: Amarillo, Azul, Naranja, Verde, Rosa pastel
+✅ Gráfico de pastel: Colores pasteles coherentes
+✅ Módulos funcionales: TALLER, POS, RECEPCIÓN, HISTORIAL, DASHBOARD
+✅ Validaciones: Cash drawer validation implementada
+✅ Debugging: Logs detallados para troubleshooting
+
+CAMBIOS INCLUIDOS EN ESTE PUNTO:
+────────────────────────────────
+1. CORRECCIONES DE BASE DE DATOS:
+   • Agregada columna 'descuento' a tabla ordenes (índice 13)
+   • Actualizado presupuesto (índice 12), abono (índice 14)
+   • Actualizado fecha_entrega (índice 15)
+   • Corregidos índices de cliente en reception.py (16-19)
+   • Validada integridad referencial
+
+2. CAMBIOS DE INTERFAZ:
+   • Colores pasteles en STATUS_* (theme.py)
+   • Actualizado colors_map en dashboard.py
+   • Badges con contraste mejorado
+   • Gráfico de pastel con colores suaves
+
+3. CARACTERÍSTICAS FUNCIONALES:
+   • Workshop → detalles_orden → POS (flujo de datos completo)
+   • Cash drawer validation antes de checkout
+   • Quick-open cash drawer desde POS
+   • Debugging mejorado con mensajes detallados
+
+4. DOCUMENTACIÓN:
+   • ESTRUCTURA_BD_COMPLETA.txt creado
+   • 21 tablas documentadas completamente
+   • Relaciones y flujos documentados
+
+CÓMO RESTAURAR:
+────────────────
+Para volver a este punto exacto en caso de que algo falle:
+
+    git checkout PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+O si está en un branch diferente:
+    git checkout -b restaurar-v1 PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+O si necesita descartar cambios locales:
+    git reset --hard PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+ARCHIVOS CRÍTICOS EN ESTE PUNTO:
+────────────────────────────────
+✓ servitec_manager/database.py - Estructura BD con 21 tablas
+✓ servitec_manager/ui/theme.py - Colores pasteles definidos
+✓ servitec_manager/ui/dashboard.py - Dashboard con colores
+✓ servitec_manager/ui/reception.py - Índices corregidos
+✓ servitec_manager/ui/pos.py - Cash validation
+✓ servitec_manager/ui/workshop.py - Guardado de costos
+✓ servitec_manager/logic.py - Lógica de negocio
+✓ ESTRUCTURA_BD_COMPLETA.txt - Documentación completa
+✓ SERVITEC.DB - Base de datos funcional
+
+TESTS RECOMENDADOS DESPUÉS DE RESTAURAR:
+─────────────────────────────────────────
+1. Crear nueva orden (Reception)
+   → Verificar que se guarde en BD correctamente
+   
+2. Cargar datos de prueba
+   → python servitec_manager/cargar_datos_prueba.py
+   
+3. Verificar dashboard
+   → Los colores pasteles deben verse correctamente
+   
+4. Flujo completo TALLER → POS
+   → Ingresar costos en taller
+   → Verificar que aparezcan en POS
+   
+5. Cierre de caja
+   → Abrir caja, hacer venta, cerrar caja
+   → Verificar diferencias
+
+================================================================================
+                        PUNTOS FUTUROS DE RESTAURACIÓN
+================================================================================
+
+Los siguientes puntos estarán disponibles cuando se completen:
+
+📋 PRÓXIMOS PUNTOS CRÍTICOS A CREAR:
+
+□ PUNTO_CRITICO_v2_POS_COMPLETO
+  - Módulo POS con todas las funciones
+  - Integración con caja de diario
+  - Reportes de ventas
+  
+□ PUNTO_CRITICO_v3_MODULO_COMPRAS
+  - Sistema de compras a proveedores
+  - Gestión de stock
+  - Pedidos a proveedores
+  
+□ PUNTO_CRITICO_v4_REPORTES_AVANZADOS
+  - Reportes de ganancias
+  - Análisis de vendedores
+  - Dashboard de ventas
+  
+□ PUNTO_CRITICO_v5_NOTIFICACIONES
+  - Sistema de notificaciones por email
+  - Recordatorios de órdenes
+  - Alertas de stock bajo
+  
+□ PUNTO_CRITICO_v6_BACKUP_AUTOMATICO
+  - Sistema de backup automático
+  - Historial de cambios
+  - Recovery point objectives
+
+================================================================================
+                    CÓMO IDENTIFICAR PUNTOS DE RESTAURACIÓN
+================================================================================
+
+Para listar todos los puntos de restauración disponibles:
+
+    git tag -l "PUNTO_CRITICO*"
+
+Para ver detalles de un punto específico:
+
+    git show PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+Para ver el commit exacto:
+
+    git log --oneline PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+Para comparar con rama actual:
+
+    git diff PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE..HEAD
+
+================================================================================
+                        PROCEDIMIENTO DE RESTAURACIÓN
+================================================================================
+
+SITUACIÓN 1: Algo se rompió en la rama main
+─────────────────────────────────────────
+
+1. Ver el estado actual:
+   git status
+
+2. Ver cambios no guardados:
+   git diff
+
+3. Restaurar a punto crítico:
+   git reset --hard PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+4. Verificar que estamos en el punto:
+   git log --oneline -1
+
+5. Probar la aplicación:
+   python servitec_manager/main.py
+
+SITUACIÓN 2: Queremos empezar desde un punto crítico
+────────────────────────────────────────────────────
+
+1. Crear rama nueva desde punto crítico:
+   git checkout -b nueva-feature PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+2. Hacer cambios en la nueva rama
+
+3. Si todo va bien, mergear a main:
+   git checkout main
+   git merge nueva-feature
+
+4. Si falla, volver a punto crítico:
+   git reset --hard PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE
+
+SITUACIÓN 3: Necesitamos auditar cambios desde punto crítico
+─────────────────────────────────────────────────────────────
+
+1. Ver todos los cambios desde punto crítico:
+   git log PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE..HEAD
+
+2. Ver archivos modificados:
+   git diff --name-only PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE..HEAD
+
+3. Ver código exacto que cambió en un archivo:
+   git diff PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE HEAD -- servitec_manager/ui/dashboard.py
+
+================================================================================
+                        REGISTRO DE CAMBIOS IMPORTANTES
+================================================================================
+
+CAMBIOS CRÍTICOS REALIZADOS ANTES DE ESTE PUNTO:
+
+📅 Sesión 1 (Correcciones tempranas):
+   ✓ Eliminación de campos duplicados en tablas
+   ✓ Eliminación de 32+ archivos con código duplicado
+   ✓ Limpieza general del workspace
+
+📅 Sesión 2 (Correcciones de esquema):
+   ✓ Refactor completo de cargar_datos_prueba.py
+   ✓ Mapeo correcto de columnas en todas las tablas
+   ✓ Eliminación de referencias a columna 'condicion' inexistente
+   ✓ Corrección de índices en history.py y logic.py
+
+📅 Sesión 3 (Features de datos):
+   ✓ Creación de tabla detalles_orden
+   ✓ Integración workshop → detalles_orden
+   ✓ Mejorada query de POS para auto-load de costos
+   ✓ Agregada validación de caja en checkout
+
+📅 Sesión 4 (UI y colores):
+   ✓ Cambio de colores a pasteles suaves
+   ✓ Badges de estado con mejor contraste
+   ✓ Dashboard actualizado con nuevos colores
+   ✓ Gráfico de pastel con paleta consistente
+
+📅 Sesión 5 (ACTUAL - Punto Crítico):
+   ✓ Corrección final de índices en BD
+   ✓ Agregada columna 'descuento' faltante
+   ✓ Validación completa de integridad
+   ✓ Documentación de estructura completa
+
+================================================================================
+                    NOTAS DE SEGURIDAD Y MEJORES PRÁCTICAS
+================================================================================
+
+1. NUNCA usar git reset --hard en rama main sin backup
+   → Primero hacer git branch backup-main
+
+2. Siempre crear punto de restauración ANTES de cambios mayores
+   → git tag -a "nombre" -m "descripción"
+
+3. Para cambios experimentales, usar ramas:
+   → git checkout -b experimental-feature
+   → Probar, hacer commits
+   → Si funciona: git merge main
+   → Si falla: git checkout main (abandona rama)
+
+4. Verificar que la aplicación funciona después de restaurar:
+   → Crear datos de prueba
+   → Probar flujo completo
+   → Verificar BD íntegra
+
+5. Mantener este archivo actualizado cuando se creen nuevos puntos
+
+================================================================================
+                            CONTACTO Y SOPORTE
+================================================================================
+
+Para preguntas sobre puntos de restauración o procedimientos:
+- Consultar con equipo de desarrollo
+- Revisar este documento antes de hacer cambios mayores
+- Crear punto de restauración antes de experimentos
+
+Último actualizado: December 18, 2025
+Punto Crítico Actual: PUNTO_CRITICO_v1_BD_Y_UI_ESTABLE (c5af5c7)
+
+================================================================================
