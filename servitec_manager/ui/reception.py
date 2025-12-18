@@ -1633,7 +1633,8 @@ class ReceptionFrame(ctk.CTkFrame):
         self.btn_save_client.configure(text="GUARDAR CLIENTE")
         for w in self.history_scroll.winfo_children(): w.destroy()
         ctk.CTkLabel(self.history_scroll, text="SELECCIONE UN CLIENTE...", text_color="gray").pack(pady=20)
-        
+        self.text_obs.delete("0.0", "end")  # Limpiar campo de observaciones
+
         # Limpiar datos del equipo
         self.combo_type.set("CELULAR")  # Resetear tipo de dispositivo
         self.combo_brand.set("SAMSUNG")  # Resetear marca
