@@ -971,59 +971,6 @@ class GESTOR_PEDIDOS:
         return stats
 
 
-# Continúa con las clases existentes...
-    def AGREGAR_PRECIO_PROVEEDOR(self, proveedor_id, repuesto_id, precio):
-        """Agregar o actualizar precio de repuesto para un proveedor"""
-        try:
-            # Verificar si ya existe
-            existing = self.bd.OBTENER_UNO(
-                "SELECT ID FROM precios_proveedor WHERE PROVEEDOR_ID = ? AND REPUESTO_ID = ?",
-                (proveedor_id, repuesto_id)
-            )
-            
-            if existing:
-                # Actualizar
-                self.bd.EJECUTAR_CONSULTA(
-                    "UPDATE precios_proveedor SET PRECIO = ?, FECHA_ACTUALIZACION = datetime('now') WHERE PROVEEDOR_ID = ? AND REPUESTO_ID = ?",
-                    (precio, proveedor_id, repuesto_id)
-                )
-            else:
-                # Crear nuevo
-                self.bd.EJECUTAR_CONSULTA(
-                    "INSERT INTO precios_proveedor (proveedor_id, repuesto_id, precio, fecha_actualizacion) VALUES (?, ?, ?, datetime('now'))",
-                    (proveedor_id, repuesto_id, precio)
-                )
-            return True
-        except:
-            return False
-
-    def OBTENER_PRECIOS_PROVEEDOR(self, proveedor_id):
-        """Obtener todos los precios registrados para un proveedor"""
-        return self.bd.OBTENER_TODOS(
-            "SELECT id, proveedor_id, repuesto_id, precio, FECHA_ACTUALIZACION FROM precios_proveedor WHERE PROVEEDOR_ID = ? ORDER BY FECHA_ACTUALIZACION DESC",
-            (proveedor_id,)
-        )
-
-    def ACTUALIZAR_PRECIO_PROVEEDOR(self, precio_id, nuevo_precio):
-        """Actualizar precio de un repuesto para un proveedor"""
-        try:
-            self.bd.EJECUTAR_CONSULTA(
-                "UPDATE precios_proveedor SET PRECIO = ?, FECHA_ACTUALIZACION = datetime('now') WHERE ID = ?",
-                (nuevo_precio, precio_id)
-            )
-            return True
-        except:
-            return False
-
-    def ELIMINAR_PRECIO_PROVEEDOR(self, precio_id):
-        """Eliminar entrada de precio"""
-        try:
-            self.bd.EJECUTAR_CONSULTA("DELETE FROM precios_proveedor WHERE ID = ?", (precio_id,))
-            return True
-        except:
-            return False
-
-
 # --- ÓRDENES ---
 class GESTOR_ORDENES:
     def __init__(self, gestor_bd): self.bd = gestor_bd
