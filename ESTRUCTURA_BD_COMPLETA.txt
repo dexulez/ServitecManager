@@ -1,0 +1,864 @@
+================================================================================
+                    ESTRUCTURA COMPLETA DE LA BASE DE DATOS
+                              ServitecManager PRO
+                                  VERSIÓN 2025
+================================================================================
+
+CONFIGURACIÓN GENERAL DE LA BD:
+- Nombre: SERVITEC.DB
+- Motor: SQLite 3
+- Modo de Journal: WAL (Write-Ahead Logging) - Mejor rendimiento y concurrencia
+- Sincronización: NORMAL (Balance entre velocidad y seguridad)
+- Cache: 64 MB en memoria
+- Page Size: 4096 bytes
+- Aislamiento: Autocommit (isolation_level=None)
+
+================================================================================
+                            TABLAS DE LA BASE DE DATOS
+================================================================================
+
+1. TABLA: USUARIOS
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Gestión de usuarios del sistema (técnicos, administrativos)
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - nombre (TEXT) [UNIQUE] ← Identificador único del usuario
+   - password (TEXT) ← Contraseña encriptada
+   - rol (TEXT) ← Rol del usuario (TECNICO, ADMIN, VENDEDOR, etc.)
+   - porcentaje_comision (REAL) DEFAULT 50 ← Comisión por reparación
+   
+   Claves Únicas:
+   • UNIQUE(nombre)
+   
+   Relaciones de Salida:
+   • ordenes.tecnico_id → usuarios.id (Técnico que repara)
+   • ventas.usuario_id → usuarios.id (Vendedor/usuario que hace venta)
+   • caja_sesiones.usuario_id → usuarios.id (Usuario que abre caja)
+   
+   Notas de Uso:
+   - El nombre es único (único identificador)
+   - Sirve para login y auditoría
+   - La comisión se calcula sobre el costo de repuestos y servicios
+
+────────────────────────────────────────────────────────────────────────────
+
+2. TABLA: CLIENTES
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Datos de clientes que traen equipos a reparar
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - rut (TEXT) [UNIQUE] ← Identificador único (RUT/Cédula)
+   - nombre (TEXT) ← Nombre completo del cliente
+   - telefono (TEXT) ← Teléfono de contacto
+   - email (TEXT) ← Email del cliente
+   
+   Claves Únicas:
+   • UNIQUE(rut)
+   
+   Relaciones de Salida:
+   • ordenes.cliente_id → clientes.id (Cliente de la orden)
+   • ventas.cliente_id → clientes.id (Cliente que compra)
+   
+   Índices Optimizados:
+   • idx_clientes_rut (búsqueda por RUT)
+   • idx_clientes_nombre (búsqueda por nombre)
+   
+   Notas de Uso:
+   - RUT es el identificador único del cliente
+   - Se mantiene historial de todas sus órdenes
+   - Se usa para notificaciones vía email o SMS
+
+────────────────────────────────────────────────────────────────────────────
+
+3. TABLA: CATEGORIAS
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Categorización de productos y repuestos
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - nombre (TEXT) [UNIQUE] ← Nombre de categoría
+   - tipo (TEXT) CHECK ← Tipo: PRODUCTO o REPUESTO
+   
+   Valores CHECK Permitidos:
+   • PRODUCTO (accesorios para vender)
+   • REPUESTO (piezas para reparación)
+   
+   Claves Únicas:
+   • UNIQUE(nombre)
+   
+   Categorías por Defecto Insertadas:
+   
+   PRODUCTOS (tipo='PRODUCTO'):
+   - FUNDAS
+   - CARGADORES
+   - MICAS
+   - AUDIFONOS
+   - CABLES
+   - OTROS
+   
+   REPUESTOS (tipo='REPUESTO'):
+   - PANTALLAS
+   - BATERIAS
+   - PINES CARGA
+   - FLEX
+   - CAMARAS
+   - OTROS
+   
+   Relaciones de Salida:
+   • inventario.categoria → categorias.nombre
+   • repuestos.categoria → categorias.nombre
+   
+   Notas de Uso:
+   - Se diferencia PRODUCTOS (venta) de REPUESTOS (reparación)
+   - Facilita búsqueda y organización de inventario
+   - Se pueden agregar categorías nuevas dinámicamente
+
+────────────────────────────────────────────────────────────────────────────
+
+4. TABLA: INVENTARIO
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Productos para la venta (accesorios, fundas, cables, etc.)
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - nombre (TEXT) [UNIQUE] ← Nombre del producto
+   - categoria (TEXT) ← Categoría del producto
+   - costo (REAL) ← Costo de compra
+   - precio (REAL) ← Precio de venta
+   - stock (INTEGER) ← Cantidad en stock
+   - proveedor_id (INTEGER) NOT NULL DEFAULT 0 ← Proveedor principal
+   
+   Claves Únicas:
+   • UNIQUE(nombre)
+   
+   Claves Foráneas:
+   • proveedor_id → proveedores.id
+   
+   Notas de Uso:
+   - Productos que se venden directamente (no son reparación)
+   - Stock se actualiza con cada venta
+   - Se puede tener múltiples proveedores por producto (tabla precios_proveedor)
+   - Diferente de repuestos (estos son para vender, no para reparar)
+
+────────────────────────────────────────────────────────────────────────────
+
+5. TABLA: REPUESTOS
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Piezas y componentes para reparación de equipos
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - nombre (TEXT) [UNIQUE] ← Nombre del repuesto
+   - categoria (TEXT) ← Categoría (pantalla, batería, etc.)
+   - costo (REAL) ← Costo de compra del repuesto
+   - precio_sugerido (REAL) ← Precio sugerido para cobrar
+   - stock (INTEGER) ← Cantidad en stock
+   - proveedor_id (INTEGER) NOT NULL DEFAULT 0 ← Proveedor principal
+   
+   Claves Únicas:
+   • UNIQUE(nombre)
+   
+   Claves Foráneas:
+   • proveedor_id → proveedores.id
+   
+   Índices Optimizados:
+   • idx_repuestos_nombre (búsqueda por nombre)
+   • idx_repuestos_categoria (búsqueda por categoría)
+   
+   Relaciones de Salida:
+   • detalles_orden.repuesto_id → repuestos.id
+   • detalle_compras.producto_id → repuestos.id (cuando tipo='REPUESTO')
+   • pedidos.repuesto_id → repuestos.id
+   • precios_proveedor.repuesto_id → repuestos.id
+   
+   Notas de Uso:
+   - Son los componentes usados en reparaciones
+   - Cada repuesto puede tener varios proveedores (tabla precios_proveedor)
+   - El costo es el costo de compra, precio_sugerido es para cobrar al cliente
+
+────────────────────────────────────────────────────────────────────────────
+
+6. TABLA: SERVICIOS_PREDEFINIDOS
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Servicios estándar que se pueden agregar a una orden
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - nombre_servicio (TEXT) [UNIQUE] ← Nombre del servicio
+   - categoria (TEXT) ← Categoría del servicio
+   - costo_mano_obra (REAL) ← Costo de la mano de obra
+   
+   Claves Únicas:
+   • UNIQUE(nombre_servicio)
+   
+   Índices Optimizados:
+   • idx_servicios_nombre (búsqueda por nombre)
+   
+   Notas de Uso:
+   - Servicios predefinidos para acelerar creación de órdenes
+   - Ejemplo: "Diagnóstico", "Limpieza", "Instalación de SO"
+   - El costo se agrega directamente al presupuesto de la orden
+
+────────────────────────────────────────────────────────────────────────────
+
+7. TABLA: ORDENES (TABLA PRINCIPAL)
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Órdenes de reparación de equipos (eje central del sistema)
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - cliente_id (INTEGER) ← ID del cliente (FOREIGN KEY)
+   - tecnico_id (INTEGER) ← ID del técnico asignado (FOREIGN KEY)
+   - fecha (TEXT) ← Fecha de entrada del equipo
+   - equipo (TEXT) ← Tipo de equipo (Celular, Laptop, Tablet, etc.)
+   - marca (TEXT) ← Marca del equipo
+   - modelo (TEXT) ← Modelo del equipo
+   - serie (TEXT) ← Número de serie del equipo
+   - observacion (TEXT) ← Descripción del problema reportado
+   - estado (TEXT) CHECK ← Estado actual de la orden
+   - accesorios (TEXT) ← Accesorios entregados con el equipo
+   - riesgoso (INTEGER) ← Flag si es equipo riesgoso (1=Sí, 0=No)
+   - presupuesto (REAL) DEFAULT 0 ← Presupuesto estimado
+   - descuento (REAL) DEFAULT 0 ← Descuento aplicado
+   - abono (REAL) DEFAULT 0 ← Abono pagado por el cliente
+   - fecha_entrega (TEXT) ← Fecha estimada de entrega
+   
+   Estados Posibles CHECK:
+   • Pendiente ← Recién ingresada
+   • En Proceso ← Siendo reparada
+   • Reparado ← Listo para entrega
+   • Entregado ← Entregada al cliente
+   • Sin solución ← No se pudo reparar
+   
+   Claves Foráneas:
+   • cliente_id → clientes.id (REQUIRED)
+   • tecnico_id → usuarios.id (OPTIONAL)
+   
+   Índices Optimizados:
+   • idx_ordenes_cliente (búsqueda por cliente)
+   • idx_ordenes_estado (búsqueda por estado)
+   • idx_ordenes_fecha (búsqueda por fecha)
+   • idx_ordenes_tecnico (búsqueda por técnico)
+   
+   Relaciones de Salida:
+   • finanzas.orden_id → ordenes.id (Finanzas de la orden)
+   • detalles_orden.orden_id → ordenes.id (Costos asociados)
+   • detalle_ventas.orden_id → ordenes.id (Si se vende algo)
+   • pedidos.orden_id → ordenes.id (Pedidos de repuestos)
+   
+   Cálculos Importantes:
+   • Saldo Pendiente = presupuesto - abono
+   • Total a Cobrar = presupuesto - descuento
+   • Utilidad = Total - Costo de Repuestos - Costo de Envío - Comisión Técnico
+   
+   Notas de Uso:
+   - Esta es la tabla central del sistema
+   - Todas las demás operaciones dependen de aquí
+   - Estados limitados a 5 valores específicos
+
+────────────────────────────────────────────────────────────────────────────
+
+8. TABLA: DETALLES_ORDEN
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Desglose de costos por orden (repuestos y envíos)
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - orden_id (INTEGER) ← Orden a la que pertenece
+   - tipo_item (TEXT) ← Tipo: REPUESTO, ENVIO, SERVICIO
+   - descripcion (TEXT) ← Descripción del item
+   - costo (REAL) ← Costo del item
+   - cantidad (INTEGER) ← Cantidad
+   - fecha_creacion (TEXT) ← Cuando se agregó
+   
+   Claves Foráneas:
+   • orden_id → ordenes.id
+   
+   Relaciones de Entrada:
+   • Agregado desde workshop.py cuando se hace clic en "AGREGAR AL POS"
+   • Agregado desde pos.py durante checkout
+   
+   Notas de Uso:
+   - Almacena el desglose de costos de cada orden
+   - Se usa para pre-llenar costos en el POS
+   - Los tipos más comunes: REPUESTO, ENVIO, SERVICIO
+   - Se elimina y recrea cada vez que se modifica una orden
+
+────────────────────────────────────────────────────────────────────────────
+
+9. TABLA: FINANZAS
+   ────────────────────────────────────────────────────────────────────────
+   Descripción: Resumen financiero de cada orden (cobros y costos)
+   
+   Columnas:
+   - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+   - orden_id (INTEGER) ← Orden asociada (FOREIGN KEY)
+   - total_cobrado (REAL) ← Total cobrado al cliente
+   - costo_repuesto (REAL) ← Costo de repuestos usados
+   - costo_envio (REAL) ← Costo de envío si aplica
+   - monto_efectivo (REAL) DEFAULT 0 ← Parte cobrada en efectivo
+   - monto_transferencia (REAL) DEFAULT 0 ← Parte cobrada por transferencia
+   - monto_debito (REAL) DEFAULT 0 ← Parte cobrada con débito
+   - monto_credito (REAL) DEFAULT 0 ← Parte cobrada con crédito
+   - descuento (REAL) DEFAULT 0 ← Descuento otorgado
+   - aplicó_iva (INTEGER) ← Si se aplicó IVA (1=Sí, 0=No)
+   - utilidad_real (REAL) ← Ganancia real = total_cobrado - costo_repuesto - costo_envio - comisión
+   - monto_comision_tecnico (REAL) ← Comisión pagada al técnico
+   - fecha_cierre (TEXT) ← Fecha cuando se cerró la orden
+   
+   Claves Foráneas:
+   • orden_id → ordenes.id
+   
+   Índices Optimizados:
+   • idx_finanzas_orden (búsqueda rápida por orden)
+   
+   Relaciones de Entrada:
+   • Se crea/actualiza al hacer checkout en POS
+   • Se crea cuando se entrega equipo
+   
+   Cálculos Verificables:
+   • total_cobrado = monto_efectivo + monto_transferencia + monto_debito + monto_credito
+   • utilidad_real = total_cobrado - costo_repuesto - costo_envio - monto_comision_tecnico
+   
+   Notas de Uso:
+   - Registro de todas las transacciones financieras
+   - Se usa para reportes de ganancias y pérdidas
+   - Permite análisis por método de pago
+
+────────────────────────────────────────────────────────────────────────────
+
+10. TABLA: CAJA_SESIONES
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Sesiones de caja/turno de cada usuario
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - usuario_id (INTEGER) ← Usuario que abre la caja (FOREIGN KEY)
+    - fecha_apertura (TEXT) ← Cuando se abrió
+    - fecha_cierre (TEXT) ← Cuando se cerró
+    - monto_inicial (REAL) ← Monto inicial de la caja
+    - monto_final_sistema (REAL) ← Total según sistema
+    - monto_final_real (REAL) ← Total según conteo físico
+    - real_efectivo (REAL) DEFAULT 0 ← Efectivo contado
+    - real_transferencia (REAL) DEFAULT 0 ← Transferencias registradas
+    - real_debito (REAL) DEFAULT 0 ← Débitos registrados
+    - real_credito (REAL) DEFAULT 0 ← Créditos registrados
+    - total_gastos (REAL) DEFAULT 0 ← Total de gastos en el turno
+    - diferencia (REAL) ← Diferencia = monto_final_sistema - monto_final_real
+    - estado (TEXT) ← ABIERTO, CERRADO, EN REVISION
+    
+    Claves Foráneas:
+    • usuario_id → usuarios.id
+    
+    Índices Optimizados:
+    • idx_caja_sesiones_usuario (búsqueda por usuario)
+    
+    Relaciones de Salida:
+    • gastos.sesion_id → caja_sesiones.id
+    
+    Notas de Uso:
+    - Una sesión = Un turno de un usuario
+    - Se valida que NO haya transacciones sin sesión abierta
+    - La diferencia permite detectar faltantes
+    - Estado ABIERTO significa que aún se pueden agregar transacciones
+
+────────────────────────────────────────────────────────────────────────────
+
+11. TABLA: GASTOS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Gastos registrados durante una sesión de caja
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - sesion_id (INTEGER) ← Sesión a la que pertenece (FOREIGN KEY)
+    - descripcion (TEXT) ← Descripción del gasto
+    - monto (REAL) ← Monto del gasto
+    - fecha (TEXT) ← Fecha del gasto
+    
+    Claves Foráneas:
+    • sesion_id → caja_sesiones.id
+    
+    Índices Optimizados:
+    • idx_gastos_sesion (búsqueda por sesión)
+    
+    Notas de Uso:
+    - Registro de gastos durante un turno
+    - Se resta del total final de la caja
+    - Ejemplos: Papel, bolsas, herramientas, etc.
+
+────────────────────────────────────────────────────────────────────────────
+
+12. TABLA: MODELOS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Catálogo de modelos de equipos (marca/modelo)
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - tipo_dispositivo (TEXT) ← Tipo: Celular, Laptop, Tablet, etc.
+    - marca (TEXT) ← Marca del dispositivo
+    - modelo (TEXT) ← Modelo del dispositivo
+    
+    Claves Únicas:
+    • UNIQUE(tipo_dispositivo, marca, modelo)
+    
+    Índices Optimizados:
+    • idx_modelos_lookup (búsqueda por tipo y marca)
+    
+    Notas de Uso:
+    - Catálogo de modelos conocidos
+    - Se usa para autocompletar en creación de órdenes
+    - Permite reportes por modelo
+    - Se llena dinámicamente según se crean órdenes
+
+────────────────────────────────────────────────────────────────────────────
+
+13. TABLA: MARCAS_PERSONALIZADAS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Marcas personalizadas agregadas por usuarios
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - nombre (TEXT) [UNIQUE] ← Nombre de la marca
+    - fecha_creacion (TEXT) DEFAULT DATETIME('NOW') ← Cuando se creó
+    
+    Claves Únicas:
+    • UNIQUE(nombre)
+    
+    Notas de Uso:
+    - Permite agregar marcas nuevas al catálogo
+    - Se usa cuando no existe la marca en tabla modelos
+
+────────────────────────────────────────────────────────────────────────────
+
+14. TABLA: VENTAS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Registro de ventas en POS (productos/accesorios)
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - usuario_id (INTEGER) ← Vendedor (FOREIGN KEY)
+    - cliente_id (INTEGER) ← Cliente que compra (FOREIGN KEY)
+    - fecha (TEXT) ← Fecha de venta
+    - total (REAL) ← Total de la venta
+    - descuento (REAL) DEFAULT 0 ← Descuento aplicado
+    - pago_efectivo (REAL) DEFAULT 0 ← Pagado en efectivo
+    - pago_transferencia (REAL) DEFAULT 0 ← Pagado por transferencia
+    - pago_debito (REAL) DEFAULT 0 ← Pagado con débito
+    - pago_credito (REAL) DEFAULT 0 ← Pagado con crédito
+    
+    Claves Foráneas:
+    • usuario_id → usuarios.id
+    • cliente_id → clientes.id
+    
+    Índices Optimizados:
+    • idx_ventas_usuario (búsqueda por vendedor)
+    • idx_ventas_fecha (búsqueda por fecha)
+    
+    Relaciones de Salida:
+    • detalle_ventas.venta_id → ventas.id
+    
+    Cálculos Verificables:
+    • total = pago_efectivo + pago_transferencia + pago_debito + pago_credito + descuento
+    
+    Notas de Uso:
+    - Venta de productos (no reparaciones)
+    - Se registra desde módulo POS
+    - Permite análisis por vendedor
+
+────────────────────────────────────────────────────────────────────────────
+
+15. TABLA: DETALLE_VENTAS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Desglose de productos en cada venta
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - venta_id (INTEGER) ← Venta a la que pertenece (FOREIGN KEY)
+    - producto_id (INTEGER) ← Producto vendido (FOREIGN KEY a inventario)
+    - orden_id (INTEGER) ← Si está asociada a una orden
+    - cantidad (INTEGER) ← Cantidad vendida
+    - precio_unitario (REAL) ← Precio por unidad
+    - subtotal (REAL) ← cantidad * precio_unitario
+    
+    Claves Foráneas:
+    • venta_id → ventas.id
+    
+    Índices Optimizados:
+    • idx_detalle_ventas_venta (búsqueda por venta)
+    
+    Cálculos Verificables:
+    • subtotal = cantidad * precio_unitario
+    
+    Notas de Uso:
+    - Detalle de cada producto vendido
+    - Permite saber qué se vendió en cada transacción
+    - Se usa para auditoría
+
+────────────────────────────────────────────────────────────────────────────
+
+16. TABLA: PROVEEDORES
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Base de datos de proveedores de repuestos
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - nombre (TEXT) [UNIQUE] ← Nombre del proveedor
+    - telefono (TEXT) ← Teléfono de contacto
+    - email (TEXT) ← Email del proveedor
+    - direccion (TEXT) ← Dirección del proveedor
+    - saldo_pendiente (REAL) DEFAULT 0 ← Saldo deudor
+    
+    Claves Únicas:
+    • UNIQUE(nombre)
+    
+    Relaciones de Salida:
+    • repuestos.proveedor_id → proveedores.id
+    • inventario.proveedor_id → proveedores.id
+    • precios_proveedor.proveedor_id → proveedores.id
+    • compras.proveedor_id → proveedores.id
+    • pedidos.proveedor_id → proveedores.id
+    • pagos_proveedor.proveedor_id → proveedores.id
+    
+    Notas de Uso:
+    - Gestión de múltiples proveedores
+    - Cada repuesto puede tener varios proveedores
+    - Se usa para hacer pedidos y comparar precios
+
+────────────────────────────────────────────────────────────────────────────
+
+17. TABLA: PRECIOS_PROVEEDOR
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Tabla de precios por proveedor (tabla de relación m:m)
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - proveedor_id (INTEGER) ← Proveedor (FOREIGN KEY)
+    - repuesto_id (INTEGER) ← Repuesto (FOREIGN KEY)
+    - precio (REAL) ← Precio que ofrece este proveedor
+    - fecha_actualizacion (TEXT) DEFAULT DATETIME('NOW') ← Última actualización
+    
+    Claves Foráneas:
+    • proveedor_id → proveedores.id
+    • repuesto_id → repuestos.id
+    
+    Índices Optimizados:
+    • idx_precios_proveedor_repuesto (búsqueda por repuesto)
+    • idx_precios_proveedor_proveedor (búsqueda por proveedor)
+    
+    Notas de Uso:
+    - Relación muchos a muchos entre proveedores y repuestos
+    - Permite tener diferentes precios por proveedor
+    - Se actualiza regularmente para comparar precios
+    - Permite elegir el mejor proveedor para cada repuesto
+
+────────────────────────────────────────────────────────────────────────────
+
+18. TABLA: COMPRAS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Registro de compras a proveedores
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - proveedor_id (INTEGER) ← Proveedor (FOREIGN KEY)
+    - fecha (TEXT) ← Fecha de compra
+    - total (REAL) ← Total de la compra
+    - estado (TEXT) ← Estado: PENDIENTE, RECIBIDA, CANCELADA
+    - tipo_documento (TEXT) ← Tipo: FACTURA, BOLETA, REMITO, etc.
+    - numero_documento (TEXT) ← Número de documento
+    - observacion (TEXT) ← Observaciones
+    
+    Claves Foráneas:
+    • proveedor_id → proveedores.id
+    
+    Índices Optimizados:
+    • idx_compras_proveedor (búsqueda por proveedor)
+    • idx_compras_fecha (búsqueda por fecha)
+    
+    Relaciones de Salida:
+    • detalle_compras.compra_id → compras.id
+    
+    Notas de Uso:
+    - Registro de cada compra a proveedores
+    - Se relaciona con detalle_compras para el desglose
+    - Permite auditoría y seguimiento de compras
+
+────────────────────────────────────────────────────────────────────────────
+
+19. TABLA: DETALLE_COMPRAS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Desglose de ítems en cada compra
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - compra_id (INTEGER) ← Compra a la que pertenece (FOREIGN KEY)
+    - producto_id (INTEGER) ← ID del producto (FOREIGN KEY)
+    - tipo_producto (TEXT) ← INVENTARIO o REPUESTO (indica cuál tabla)
+    - cantidad (INTEGER) ← Cantidad comprada
+    - costo_unitario (REAL) ← Costo por unidad
+    - subtotal (REAL) ← cantidad * costo_unitario
+    
+    Claves Foráneas:
+    • compra_id → compras.id
+    
+    Índices Optimizados:
+    • idx_detalle_compras_compra (búsqueda por compra)
+    
+    Cálculos Verificables:
+    • subtotal = cantidad * costo_unitario
+    • Total compra = SUM(subtotal) de todos los detalles
+    
+    Notas de Uso:
+    - Desglose de cada compra
+    - tipo_producto permite referenciar a inventario O repuestos
+    - Se usa para auditoría y actualizar stock
+
+────────────────────────────────────────────────────────────────────────────
+
+20. TABLA: PEDIDOS
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Solicitudes de repuestos a proveedores
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - orden_id (INTEGER) ← Orden asociada (FOREIGN KEY, OPTIONAL)
+    - producto_id (INTEGER) ← Producto (FOREIGN KEY, OPTIONAL)
+    - repuesto_id (INTEGER) ← Repuesto (FOREIGN KEY, OPTIONAL)
+    - proveedor_id (INTEGER) NOT NULL ← Proveedor (FOREIGN KEY)
+    - cantidad (INTEGER) NOT NULL ← Cantidad solicitada
+    - estado (TEXT) DEFAULT 'PENDIENTE' ← PENDIENTE, ORDENADO, RECIBIDO, CANCELADO
+    - fecha_solicitud (TEXT) ← Fecha de solicitud
+    - fecha_pedido (TEXT) ← Fecha cuando se hizo el pedido
+    - fecha_recepcion (TEXT) ← Fecha de recepción
+    - notas (TEXT) ← Notas adicionales
+    - usuario_solicita (TEXT) ← Usuario que solicitó
+    
+    Claves Foráneas:
+    • orden_id → ordenes.id (OPTIONAL)
+    • producto_id → inventario.id (OPTIONAL)
+    • repuesto_id → repuestos.id (OPTIONAL)
+    • proveedor_id → proveedores.id (REQUIRED)
+    
+    Estados Posibles:
+    • PENDIENTE: Esperando ser ordenado
+    • ORDENADO: Ya se envió el pedido
+    • RECIBIDO: Se recibió el pedido
+    • CANCELADO: Se canceló
+    
+    Notas de Uso:
+    - Permite rastrear pedidos a proveedores
+    - Se crea cuando faltan repuestos en una orden
+    - Puede estar asociado o no a una orden específica
+    - Permite gestión de stock preventiva
+
+────────────────────────────────────────────────────────────────────────────
+
+21. TABLA: PAGOS_PROVEEDOR
+    ────────────────────────────────────────────────────────────────────────
+    Descripción: Registro de pagos realizados a proveedores
+    
+    Columnas:
+    - id (INTEGER PRIMARY KEY AUTOINCREMENT)
+    - proveedor_id (INTEGER) ← Proveedor (FOREIGN KEY)
+    - fecha (TEXT) ← Fecha del pago
+    - monto (REAL) ← Monto pagado
+    - metodo_pago (TEXT) ← Método: EFECTIVO, TRANSFERENCIA, CHEQUE, etc.
+    - referencia (TEXT) ← Número de referencia (ej: número de cheque)
+    - observacion (TEXT) ← Observaciones
+    
+    Claves Foráneas:
+    • proveedor_id → proveedores.id
+    
+    Índices Optimizados:
+    • idx_pagos_proveedor_proveedor (búsqueda por proveedor)
+    
+    Notas de Uso:
+    - Registro de todos los pagos a proveedores
+    - Se usa para actualizar saldo_pendiente en tabla proveedores
+    - Permite auditoría de pagos
+    - Se relaciona con cuentas bancarias
+
+================================================================================
+                            RESUMEN DE RELACIONES
+================================================================================
+
+DIAGRAMA DE FLUJO DE DATOS PRINCIPAL:
+
+1. ENTRADA DE DATOS:
+   clientes → ordenes (cliente_id)
+   usuarios → ordenes (tecnico_id)
+
+2. DETALLES DE ÓRDENES:
+   ordenes → detalles_orden (orden_id)
+   ordenes → finanzas (orden_id)
+
+3. REPARACIÓN:
+   repuestos → detalles_orden (via descripción/costo)
+   servicios_predefinidos → ordenes (agregado al presupuesto)
+
+4. VENTAS:
+   ordenes → detalle_ventas (orden_id, OPTIONAL)
+   inventario → detalle_ventas (producto_id)
+   ventas → detalle_ventas (venta_id)
+   usuarios → ventas (usuario_id)
+
+5. CAJA/FINANZAS:
+   usuarios → caja_sesiones (usuario_id)
+   caja_sesiones → gastos (sesion_id)
+   ventas → finanzas (total_cobrado)
+
+6. PROVEEDORES:
+   proveedores ← repuestos (proveedor_id)
+   proveedores ← inventario (proveedor_id)
+   proveedores → precios_proveedor
+   repuestos → precios_proveedor
+   proveedores → compras
+   compras → detalle_compras
+   proveedores → pedidos
+   proveedores → pagos_proveedor
+
+7. CATÁLOGOS:
+   modelos (independiente)
+   marcas_personalizadas (independiente)
+   categorias (referenciada por repuestos e inventario)
+
+================================================================================
+                        ESTADÍSTICAS DE LA BASE DE DATOS
+================================================================================
+
+Total de Tablas: 21
+Total de Índices: 25
+
+Tablas Principales (core):
+- USUARIOS (gestión)
+- CLIENTES (gestión)
+- ORDENES (eje central)
+- DETALLES_ORDEN (desglose de costos)
+- FINANZAS (registros financieros)
+
+Tablas de Soporte:
+- REPUESTOS (inventario de reparación)
+- INVENTARIO (venta de productos)
+- SERVICIOS_PREDEFINIDOS (servicios estándar)
+- CAJA_SESIONES (control de caja)
+- GASTOS (registro de gastos)
+
+Tablas de Proveedores:
+- PROVEEDORES (base de proveedores)
+- PRECIOS_PROVEEDOR (tabla relación m:m)
+- COMPRAS (registro de compras)
+- DETALLE_COMPRAS (desglose de compras)
+- PEDIDOS (solicitudes)
+- PAGOS_PROVEEDOR (registro de pagos)
+
+Tablas de Ventas POS:
+- VENTAS (registro de ventas)
+- DETALLE_VENTAS (desglose de ventas)
+
+Tablas de Catálogos:
+- MODELOS (catálogo de modelos)
+- MARCAS_PERSONALIZADAS (marcas personalizadas)
+- CATEGORIAS (categorización de productos y repuestos)
+
+================================================================================
+                        CONVENCIONES DE DISEÑO
+================================================================================
+
+1. CLAVES PRIMARIAS:
+   - Todas usan AUTOINCREMENT (id INTEGER PRIMARY KEY AUTOINCREMENT)
+   - Empiezan en 1 y se incrementan automáticamente
+
+2. CLAVES ÚNICAS:
+   - USUARIOS.nombre (debe ser único para login)
+   - CLIENTES.rut (debe ser único para identificar cliente)
+   - REPUESTOS.nombre (debe ser único en inventario)
+   - INVENTARIO.nombre (debe ser único en inventario)
+   - PROVEEDORES.nombre (debe ser único)
+   - CATEGORIAS.nombre (debe ser único)
+   - MODELOS.(tipo_dispositivo, marca, modelo) COMBINED
+   - MARCAS_PERSONALIZADAS.nombre (debe ser único)
+   - SERVICIOS_PREDEFINIDOS.nombre_servicio (debe ser único)
+
+3. VALORES POR DEFECTO:
+   - DEFAULT 0 para campos de cantidad/monto
+   - DEFAULT DATETIME('NOW') para fechas automáticas
+   - CHECK constraints para estados limitados
+
+4. RESTRICCIONES CHECK:
+   - ordenes.estado CHECK(estado IN (valores específicos))
+   - caja_sesiones.estado CHECK
+   - categorias.tipo CHECK(tipo IN ('PRODUCTO', 'REPUESTO'))
+   - pedidos.estado DEFAULT 'PENDIENTE'
+
+5. RELACIONES FORÁNEAS:
+   - La mayoría son REQUIRED (NOT NULL)
+   - Algunas son OPTIONAL (para flexibilidad)
+   - No hay CASCADE DELETE (mayor seguridad)
+
+================================================================================
+                        NOTAS IMPORTANTES SOBRE INTEGRIDAD
+================================================================================
+
+1. VALIDACIONES CRÍTICAS:
+   ✓ No se puede crear orden sin cliente
+   ✓ No se puede cobrar sin caja abierta
+   ✓ No se puede cambiar estado a estados no permitidos
+   ✓ El saldo pendiente nunca puede ser negativo (presupuesto - abono)
+
+2. TRANSACCIONES IMPORTANTES:
+   ✓ Crear orden + finanzas (transacción)
+   ✓ Cobro en POS (actualiza caja_sesiones + ventas + finanzas)
+   ✓ Cierre de caja (suma todos los gastos y pagos)
+
+3. AUDITORÍA:
+   ✓ Todas las tablas principales tienen fecha_creacion o fecha
+   ✓ Se puede rastrear quién hizo cada transacción
+   ✓ Se mantiene historial completo de cambios
+
+4. OPTIMIZACIONES APLICADAS:
+   ✓ WAL mode para mejor concurrencia
+   ✓ 25 índices estratégicamente colocados
+   ✓ Cache de 64MB en memoria
+   ✓ Análisis automático (ANALYZE)
+
+================================================================================
+                    FLUJO TÍPICO DE UNA ORDEN (End-to-End)
+================================================================================
+
+1. CREACIÓN:
+   → Se registra cliente (CLIENTES)
+   → Se crea orden (ORDENES)
+   → Se registra técnico asignado (tecnico_id)
+
+2. REPARACIÓN:
+   → Técnico agrega servicios/repuestos
+   → Se actualiza presupuesto
+   → Se crea detalle_orden con costos
+
+3. POS/COBRO:
+   → Se carga orden en POS
+   → Se pre-llenan costos desde detalles_orden
+   → Se realiza cobro (VENTAS + DETALLE_VENTAS)
+   → Se crea/actualiza FINANZAS
+
+4. CIERRE:
+   → Se marca orden como ENTREGADO
+   → Se calcula utilidad real
+   → Se registra comisión del técnico
+   → Se cierra sesión de caja
+
+================================================================================
+                    INFORMACIÓN DE CONTACTO Y SOPORTE
+================================================================================
+
+Sistema: ServitecManager PRO
+Versión: 2025
+Motor BD: SQLite 3 (WAL Mode)
+Archivo BD: SERVITEC.DB
+Ubicación: Directorio raíz del proyecto
+
+Para consultas sobre estructura o modificaciones,
+consultar con el equipo de desarrollo.
+
+================================================================================
