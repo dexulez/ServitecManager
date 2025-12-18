@@ -1673,15 +1673,15 @@ class ReceptionFrame(ctk.CTkFrame):
         """Diálogo SIMPLE solo para seleccionar método de pago en RECEPCIÓN"""
         dialog = ctk.CTkToplevel(self)
         dialog.title("SELECCIONAR MÉTODO DE PAGO")
-        dialog.geometry("450x350")
+        dialog.geometry("500x500")
         dialog.attributes("-topmost", True)
         dialog.transient(self)
         dialog.grab_set()
         # Centrar ventana
         dialog.update_idletasks()
-        x = (dialog.winfo_screenwidth() // 2) - (450 // 2)
-        y = (dialog.winfo_screenheight() // 2) - (350 // 2)
-        dialog.geometry(f"450x350+{x}+{y}")
+        x = (dialog.winfo_screenwidth() // 2) - (500 // 2)
+        y = (dialog.winfo_screenheight() // 2) - (500 // 2)
+        dialog.geometry(f"500x500+{x}+{y}")
 
         # Frame principal
         main_frame = ctk.CTkFrame(dialog, fg_color=Theme.BACKGROUND)
