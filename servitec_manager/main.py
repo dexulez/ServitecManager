@@ -106,6 +106,25 @@ def EJECUTAR_MIGRACIONES():
         except Exception as e:
             print(f"⚠️ Error creando tabla boletas: {e}")
         
+        # Crear tabla de detalles de orden si no existe
+        try:
+            cursor.execute("""
+            CREATE TABLE IF NOT EXISTS detalles_orden (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                orden_id INTEGER NOT NULL,
+                tipo_item TEXT NOT NULL,
+                descripcion TEXT,
+                costo REAL DEFAULT 0,
+                cantidad INTEGER DEFAULT 1,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY(orden_id) REFERENCES ordenes(id)
+            )
+            """)
+            conn.commit()
+            print("✅ Tabla 'detalles_orden' lista")
+        except Exception as e:
+            print(f"⚠️ Error creando tabla detalles_orden: {e}")
+        
         conn.close()
     except Exception as e:
         print(f"⚠️ Error en migración: {e}")

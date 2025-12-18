@@ -378,34 +378,52 @@ class POSFrame(ctk.CTkFrame):
         v_rep = ctk.StringVar(); v_env = ctk.StringVar(); v_iva = ctk.BooleanVar(); v_card = ctk.BooleanVar()
         
         # Cargar automáticamente los costos de repuestos y envío de la orden
+        costo_rep = 0
+        costo_env = 0
         try:
-            # Query para obtener costos de detalles_orden
+            # Query para obtener costos detallados de detalles_orden
             query = """
-            SELECT COALESCE(SUM(CASE WHEN tipo_item = 'REPUESTO' THEN costo ELSE 0 END), 0) as costo_repuesto,
-                   COALESCE(SUM(CASE WHEN tipo_item = 'ENVIO' THEN costo ELSE 0 END), 0) as costo_envio
-            FROM detalles_orden WHERE orden_id = ?
+            SELECT tipo_item, SUM(costo) as total_costo
+            FROM detalles_orden 
+            WHERE orden_id = ? 
+            GROUP BY tipo_item
             """
-            resultado = self.logic.bd.OBTENER_UNO(query, (order_id,))
-            if resultado:
-                costo_rep = int(resultado[0]) if resultado[0] > 0 else 0
-                costo_env = int(resultado[1]) if resultado[1] > 0 else 0
-                # Formatear con miles
-                if costo_rep > 0:
-                    v_rep.set(f"{costo_rep:,}".replace(",", "."))
-                if costo_env > 0:
-                    v_env.set(f"{costo_env:,}".replace(",", "."))
+            resultados = self.logic.bd.OBTENER_TODOS(query, (order_id,))
+            
+            if resultados:
+                for row in resultados:
+                    tipo = row[0] if isinstance(row, tuple) else row.get('tipo_item', '')
+                    costo = row[1] if isinstance(row, tuple) else row.get('total_costo', 0)
+                    
+                    if 'REPUESTO' in str(tipo).upper():
+                        costo_rep = int(costo) if costo else 0
+                    elif 'ENVIO' in str(tipo).upper():
+                        costo_env = int(costo) if costo else 0
+                
+                print(f"DEBUG POS: Costos cargados - Repuestos: ${costo_rep}, Envío: ${costo_env}")
+            
+            # Formatear con miles
+            if costo_rep > 0:
+                v_rep.set(f"{costo_rep:,}".replace(",", "."))
+            if costo_env > 0:
+                v_env.set(f"{costo_env:,}".replace(",", "."))
+                
         except Exception as e:
             print(f"Error cargando costos de detalles_orden: {e}")
+            import traceback
+            traceback.print_exc()
         
         # Traces para formato de miles
         v_rep.trace("w", lambda *a: self.format_live(v_rep))
         v_env.trace("w", lambda *a: self.format_live(v_env))
         
         ctk.CTkLabel(win, text="COSTO REPUESTO ($):").pack()
-        ctk.CTkEntry(win, textvariable=v_rep).pack(pady=5)
+        entry_rep = ctk.CTkEntry(win, textvariable=v_rep)
+        entry_rep.pack(pady=5)
         
         ctk.CTkLabel(win, text="COSTO ENVÍO ($):").pack()
-        ctk.CTkEntry(win, textvariable=v_env).pack(pady=5)
+        entry_env = ctk.CTkEntry(win, textvariable=v_env)
+        entry_env.pack(pady=5)
         
         ctk.CTkCheckBox(win, text="APLICA IVA (BOLETA/FACTURA)", variable=v_iva).pack(pady=10)
         ctk.CTkCheckBox(win, text="PAGO CON TARJETA (COMISIÓN BANCO)", variable=v_card).pack(pady=5)
