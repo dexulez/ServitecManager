@@ -79,10 +79,9 @@ class HistoryFrame(ctk.CTkFrame):
         data = self.logic.reports.get_full_history_orders()
 
         filter_txt = filter_txt.upper()
-        ESTADOS = ['En proceso', 'Reparado', 'Sin Solución', 'Entregado']
-        CONDICIONES = ['Solucionado', 'Sin Solución']
+        ESTADOS = ['En proceso', 'Reparado', 'Sin Solución', 'Entregado', 'Pendiente']
         for row in data:
-            # 0:id, 1:fecha, 2:cliente, 3:equipo, 4:tecnico, 5:estado, 6:condicion, 7:observacion, 8:fecha_entrega, 9:total, 10:fecha_cierre
+            # 0:id, 1:fecha, 2:cliente, 3:equipo, 4:tecnico, 5:estado, 6:observacion, 7:fecha_entrega, 8:saldo_pendiente, 9:fecha_cierre
             oid = row[0]
             # Filtros
             if self.filtro_estado and row[5] != self.filtro_estado:
@@ -97,7 +96,7 @@ class HistoryFrame(ctk.CTkFrame):
             ctk.CTkLabel(f, text=row[4] or "---", width=90, text_color=Theme.TEXT_SECONDARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
             
             # Observaciones (completas, multilinea si es necesario)
-            obs_raw = row[7] or "-"
+            obs_raw = row[6] or "-"
             obs_clean = obs_raw.replace("FALLA: |", "").replace("FALLA:", "").replace("|", "").strip()
             ctk.CTkLabel(f, text=obs_clean, width=390, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="nw", wraplength=380, justify="left").pack(side="left", padx=3)
 
@@ -106,63 +105,22 @@ class HistoryFrame(ctk.CTkFrame):
             estado_cb = ctk.CTkComboBox(f, values=ESTADOS, variable=estado_var, width=120)
             estado_cb.pack(side="left", padx=3, pady=4)
 
-            # Condición (ComboBox dependiente)
-            condicion_var = ctk.StringVar(value=row[6] or "")
-            condicion_cb = ctk.CTkComboBox(f, values=CONDICIONES, variable=condicion_var, width=130)
-            condicion_cb.pack(side="left", padx=3, pady=4)
-
-            # Inicializar estado de condición
-            def update_condicion_field(ev=None, oid=oid, estado_var=estado_var, condicion_var=condicion_var, condicion_cb=condicion_cb):
-                if estado_var.get() == "Entregado":
-                    condicion_cb.configure(state="normal")
-                    # Regla de negocio
-                    orden = self.logic.bd.OBTENER_UNO("SELECT estado FROM ordenes WHERE id = ?", (oid,))
-                    prev_estado = orden[0] if orden else None
-                    if prev_estado == "Reparado":
-                        condicion_var.set("Solucionado")
-                    elif prev_estado == "Sin Solución":
-                        condicion_var.set("Sin Solución")
-                else:
-                    condicion_var.set("")
-                    condicion_cb.configure(state="disabled")
-
             # Evento de cambio de estado
-            def on_estado_change(choice, oid=oid, estado_var=estado_var, condicion_var=condicion_var):
-                # Si pasa a Entregado, aplicar lógica de condición
-                if choice == "Entregado":
-                    orden = self.logic.bd.OBTENER_UNO("SELECT estado FROM ordenes WHERE id = ?", (oid,))
-                    prev_estado = orden[0] if orden else None
-                    if prev_estado == "Reparado":
-                        condicion_var.set("Solucionado")
-                    elif prev_estado == "Sin Solución":
-                        condicion_var.set("Sin Solución")
-                    condicion_cb.configure(state="normal")
-                else:
-                    condicion_var.set("")
-                    condicion_cb.configure(state="disabled")
+            def on_estado_change(choice, oid=oid):
                 # Guardar en base de datos
-                self.logic.orders.ACTUALIZAR_ESTADO(oid, choice, condicion_var.get() if choice == "Entregado" else None)
+                self.logic.orders.ACTUALIZAR_ESTADO(oid, choice)
                 if self.app_ref:
                     self.app_ref.refresh_all_frames()
 
             estado_cb.configure(command=on_estado_change)
-            # Evento de cambio de condición
-            def on_condicion_change(choice, oid=oid, estado_var=estado_var, condicion_var=condicion_var):
-                if estado_var.get() == "Entregado":
-                    self.logic.orders.ACTUALIZAR_ESTADO(oid, estado_var.get(), choice)
-                    if self.app_ref:
-                        self.app_ref.refresh_all_frames()
-
-            condicion_cb.configure(command=on_condicion_change)
-            # Inicializar estado de campo condición
-            update_condicion_field()
             
             # Fecha de entrega
-            fecha_ent = row[8][:10] if row[8] else "-"
+            fecha_ent = row[7][:10] if row[7] else "-"
             ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
 
-            total = f"${int(row[9]):,}".replace(",", ".") if row[9] else "$0"
-            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
+            # Saldo pendiente
+            saldo = f"${int(row[8]):,}".replace(",", ".") if row[8] else "$0"
+            ctk.CTkLabel(f, text=saldo, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
 
             # Botón ver
             ctk.CTkButton(f, text="👁️", width=80, height=30, **Theme.get_button_style("secondary"), command=lambda oid=row[0]: self.show_order_detail(oid)).pack(side="left", padx=3)
