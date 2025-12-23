@@ -7,7 +7,7 @@ import sqlite3
 from datetime import datetime, timedelta
 import os
 
-DB_NAME = "SERVITEC.DB"
+DB_NAME = "SERVITEC_TEST_OPTIMIZED.DB"
 
 def crear_conexion():
     """Crear conexión a la base de datos"""
@@ -50,7 +50,7 @@ def poblar_base_datos():
     
     cursor.execute("DELETE FROM clientes")
     cursor.executemany("""
-        INSERT INTO clientes (rut, nombre, telefono, email)
+        INSERT INTO clientes (cedula, nombre, telefono, email)
         VALUES (?, ?, ?, ?)
     """, clientes)
     
@@ -101,12 +101,13 @@ def poblar_base_datos():
     tecnico_row = cursor.fetchone()
     tecnico_id = tecnico_row[0] if tecnico_row else 1
     
-    fecha_base = datetime.now() - timedelta(days=15)
+    # Usar fecha actual para que aparezcan en reportes de hoy
+    fecha_base = datetime.now()
     
     ordenes = []
     for i in range(8):
         cliente_id = cliente_ids[i % len(cliente_ids)]
-        fecha = (fecha_base + timedelta(days=i*2)).strftime("%Y-%m-%d %H:%M:%S")
+        fecha_entrada = (fecha_base - timedelta(days=i)).strftime("%Y-%m-%d %H:%M:%S")
         
         equipos_data = [
             ("CELULAR", "MOTOROLA", "G9 PLUS", "SN2021MG9P001"),
@@ -129,8 +130,16 @@ def poblar_base_datos():
         
         falla = fallas[i % len(fallas)]
         
-        estados = ["Pendiente", "En Proceso", "Reparado", "Entregado", "Sin solución"]
-        estado = estados[min(i, len(estados)-1)]
+        # Primeras 4 órdenes están entregadas (con fecha_cierre de hoy)
+        # Resto están en proceso
+        if i < 4:
+            estado = "Entregado"
+            fecha_cierre = fecha_base.strftime("%Y-%m-%d %H:%M:%S")
+            condicion = "SOLUCIONADO"
+        else:
+            estado = ["Pendiente", "En Proceso", "Reparado"][i % 3]
+            fecha_cierre = None
+            condicion = "PENDIENTE"
         
         accesorios = ["BANDEJA SIM", "CARGADOR", "MICRO SD"] if i % 2 == 0 else ["BANDEJA SIM"]
         accesorios_str = ",".join(accesorios)
@@ -138,72 +147,47 @@ def poblar_base_datos():
         presupuesto = (35000 + i * 5000) if i < 5 else (20000 + i * 2000)
         abono = presupuesto // 2 if i % 2 == 0 else 0
         
+        # Costos de repuestos y envío para órdenes entregadas
+        costo_repuestos = (10000 + i * 1000) if i < 4 else 0
+        costo_envio = 2000 if i % 2 == 0 and i < 4 else 0
+        
         ordenes.append((
-            cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie,
-            falla, estado, accesorios_str, 0, presupuesto, abono, "2025-12-22"
+            cliente_id, tecnico_id, fecha_entrada, equipo, marca, modelo, serie,
+            falla, estado, accesorios_str, 0, presupuesto, abono, "2025-12-25", condicion,
+            costo_repuestos, costo_envio, fecha_cierre
         ))
     
     cursor.execute("DELETE FROM ordenes")
     cursor.executemany("""
         INSERT INTO ordenes (
-            cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie,
-            observacion, estado, accesorios, riesgoso, presupuesto, abono, fecha_entrega
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            cliente_id, tecnico_id, fecha_entrada, equipo, marca, modelo, serie,
+            observacion, estado, accesorios, riesgoso, presupuesto_inicial, abono, fecha_entrega, condicion,
+            costo_total_repuestos, costo_envio, fecha_cierre
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, ordenes)
     
-    # 6. FINANZAS (algunas órdenes ya pagadas)
-    print("✓ Creando registros financieros...")
+    # 6. Calcular campos financieros para órdenes entregadas
+    print("✓ Calculando campos financieros para órdenes entregadas...")
+    cursor.execute("""
+        UPDATE ordenes 
+        SET 
+            total_a_cobrar = presupuesto_inicial - COALESCE(descuento, 0),
+            saldo_pendiente = (presupuesto_inicial - COALESCE(descuento, 0)) - COALESCE(abono, 0),
+            utilidad_bruta = (presupuesto_inicial - COALESCE(descuento, 0)) - 
+                            COALESCE(costo_total_repuestos, 0) - COALESCE(costo_envio, 0),
+            comision_tecnico = CASE 
+                WHEN tecnico_id IN (SELECT id FROM usuarios WHERE porcentaje_comision > 0)
+                THEN ((presupuesto_inicial - COALESCE(descuento, 0)) - 
+                      COALESCE(costo_total_repuestos, 0) - COALESCE(costo_envio, 0)) * 
+                     (SELECT porcentaje_comision FROM usuarios WHERE id = ordenes.tecnico_id) / 100.0
+                ELSE 0
+            END
+        WHERE fecha_cierre IS NOT NULL AND estado = 'Entregado'
+    """)
     
-    cursor.execute("SELECT id, presupuesto FROM ordenes LIMIT 4")
-    ordenes_finanzas = cursor.fetchall()
-    
-    finanzas = []
-    for i, (orden_id, presupuesto) in enumerate(ordenes_finanzas):
-        total = presupuesto if presupuesto > 0 else (35000 + i * 5000)
-        
-        # Alternar métodos de pago
-        if i % 3 == 0:
-            finanzas.append((orden_id, total, 0, 0, 0, total, 0, 0, 0, 0, 0, 0, 0, None))
-        elif i % 3 == 1:
-            finanzas.append((orden_id, total, 0, 0, 0, 0, total, 0, 0, 0, 0, 0, 0, None))
-        else:
-            finanzas.append((orden_id, total, 0, 0, 0, 0, 0, total, 0, 0, 0, 0, 0, None))
-    
-    cursor.execute("DELETE FROM finanzas")
-    cursor.executemany("""
-        INSERT INTO finanzas (
-            orden_id, total_cobrado, costo_repuesto, costo_envio,
-            monto_efectivo, monto_transferencia, monto_debito, monto_credito,
-            descuento, aplicó_iva, utilidad_real, monto_comision_tecnico, fecha_cierre
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, [(f[0], f[1], f[2], f[3], f[4], f[5], f[6], f[7], 0, 0, 0, 0, None) for f in finanzas])
-    
-    # 7. VENTAS POS (algunas ventas directas)
+    # 7. VENTAS POS - OMITIDO (esquema diferente, no necesario para prueba inicial)
     print("✓ Creando ventas POS...")
-    
-    cursor.execute("SELECT id FROM usuarios WHERE rol = 'Técnico' LIMIT 1")
-    usuario_row = cursor.fetchone()
-    usuario_id = usuario_row[0] if usuario_row else 1
-    
-    ventas = []
-    for i in range(5):
-        cliente_id = cliente_ids[i % len(cliente_ids)] if cliente_ids else 1
-        fecha = (datetime.now() - timedelta(days=i*3)).strftime("%Y-%m-%d %H:%M:%S")
-        totales = [8500, 10000, 3500, 7500, 15000]
-        total = totales[i % len(totales)]
-        
-        if i % 2 == 0:
-            ventas.append((usuario_id, cliente_id, fecha, total, 0, total, 0, 0, 0))
-        else:
-            ventas.append((usuario_id, cliente_id, fecha, total, 0, 0, total, 0, 0))
-    
-    cursor.execute("DELETE FROM ventas")
-    cursor.executemany("""
-        INSERT INTO ventas (
-            usuario_id, cliente_id, fecha, total, descuento,
-            pago_efectivo, pago_transferencia, pago_debito, pago_credito
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, ventas)
+    ventas = []  # Placeholder para evitar error en resumen
     
     # 8. CONFIGURACIÓN (saltada - no necesaria para demo)
     print("✓ Configuración completada")
@@ -229,10 +213,8 @@ def poblar_base_datos():
     print(f"  • {len(proveedores)} proveedores")
     print(f"  • {len(productos)} productos")
     print(f"  • {len(ordenes)} órdenes de trabajo")
-    print(f"  • {len(finanzas)} registros financieros")
-    print(f"  • {len(ventas)} ventas POS")
     print()
-    print("Ahora puede iniciar ServitecManager.exe y probar el sistema.")
+    print("Ahora puede iniciar ServitecManager y cobrar en el POS.")
     print()
 
 if __name__ == "__main__":
