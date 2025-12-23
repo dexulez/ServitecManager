@@ -4,7 +4,7 @@ import threading
 import atexit
 
 # CONSTANTES GLOBALES
-NOMBRE_BD = "SERVITEC.DB"
+NOMBRE_BD = "SERVITEC_TEST_OPTIMIZED.DB"
 
 class DictRow(dict):
     """
@@ -123,10 +123,11 @@ class GESTOR_BASE_DATOS:
             )""",
             """CREATE TABLE IF NOT EXISTS clientes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                rut TEXT UNIQUE,
+                cedula TEXT UNIQUE,
                 nombre TEXT,
                 telefono TEXT,
-                email TEXT
+                email TEXT,
+                fecha_creacion TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )""",
             """CREATE TABLE IF NOT EXISTS categorias (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -161,38 +162,49 @@ class GESTOR_BASE_DATOS:
             )""",
             """CREATE TABLE IF NOT EXISTS ordenes (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
-                cliente_id INTEGER,
+                cliente_id INTEGER NOT NULL,
                 tecnico_id INTEGER,
-                fecha TEXT,
+                
+                -- INFORMACIÓN DEL EQUIPO
+                fecha_entrada TEXT DEFAULT CURRENT_TIMESTAMP,
+                fecha_entrega TEXT,
                 equipo TEXT,
                 marca TEXT,
                 modelo TEXT,
                 serie TEXT,
                 observacion TEXT,
-                estado TEXT CHECK(estado IN ('Pendiente', 'En Proceso', 'Reparado', 'Entregado', 'Sin solución')) DEFAULT 'Pendiente',
                 accesorios TEXT,
-                riesgoso INTEGER,
-                presupuesto REAL DEFAULT 0,
+                riesgoso INTEGER DEFAULT 0,
+                
+                -- ESTADOS
+                estado TEXT CHECK(estado IN ('Pendiente', 'En Proceso', 'Reparado', 'Entregado', 'Sin solución')) DEFAULT 'Pendiente',
+                condicion TEXT CHECK(condicion IN ('PENDIENTE', 'SOLUCIONADO', 'SIN SOLUCIÓN')) DEFAULT 'PENDIENTE',
+                
+                -- FINANZAS INTEGRADAS (TODO EN UNA TABLA)
+                presupuesto_inicial REAL DEFAULT 0,
+                costo_total_repuestos REAL DEFAULT 0,
+                costo_total_servicios REAL DEFAULT 0,
+                costo_envio REAL DEFAULT 0,
                 descuento REAL DEFAULT 0,
+                total_a_cobrar REAL DEFAULT 0,
                 abono REAL DEFAULT 0,
-                fecha_entrega TEXT,
-                FOREIGN KEY(cliente_id) REFERENCES clientes(id)
-            )""",
-            """CREATE TABLE IF NOT EXISTS finanzas (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                orden_id INTEGER,
-                total_cobrado REAL,
-                costo_repuesto REAL,
-                costo_envio REAL,
-                monto_efectivo REAL DEFAULT 0,
-                monto_transferencia REAL DEFAULT 0,
-                monto_debito REAL DEFAULT 0,
-                monto_credito REAL DEFAULT 0,
-                descuento REAL DEFAULT 0,
-                aplicó_iva INTEGER,
-                utilidad_real REAL,
-                monto_comision_tecnico REAL,
-                fecha_cierre TEXT
+                saldo_pendiente REAL DEFAULT 0,
+                utilidad_bruta REAL DEFAULT 0,
+                comision_tecnico REAL DEFAULT 0,
+                
+                -- MÉTODOS DE PAGO (PARA REPARACIONES)
+                pago_efectivo REAL DEFAULT 0,
+                pago_transferencia REAL DEFAULT 0,
+                pago_debito REAL DEFAULT 0,
+                pago_credito REAL DEFAULT 0,
+                
+                -- AUDITORÍA
+                fecha_cierre TEXT,
+                usuario_cierre_id INTEGER,
+                
+                FOREIGN KEY (cliente_id) REFERENCES clientes(id) ON DELETE RESTRICT,
+                FOREIGN KEY (tecnico_id) REFERENCES usuarios(id) ON DELETE SET NULL,
+                FOREIGN KEY (usuario_cierre_id) REFERENCES usuarios(id) ON DELETE SET NULL
             )""",
             """CREATE TABLE IF NOT EXISTS caja_sesiones (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -322,13 +334,12 @@ class GESTOR_BASE_DATOS:
         
         # ÍNDICES PARA OPTIMIZACIÓN DE CONSULTAS
         indices = [
-            "CREATE INDEX IF NOT EXISTS idx_clientes_rut ON clientes(rut)",
+            "CREATE INDEX IF NOT EXISTS idx_clientes_cedula ON clientes(cedula)",
             "CREATE INDEX IF NOT EXISTS idx_clientes_nombre ON clientes(nombre)",
             "CREATE INDEX IF NOT EXISTS idx_ordenes_cliente ON ordenes(cliente_id)",
             "CREATE INDEX IF NOT EXISTS idx_ordenes_estado ON ordenes(estado)",
             "CREATE INDEX IF NOT EXISTS idx_ordenes_fecha ON ordenes(fecha)",
             "CREATE INDEX IF NOT EXISTS idx_ordenes_tecnico ON ordenes(tecnico_id)",
-            "CREATE INDEX IF NOT EXISTS idx_finanzas_orden ON finanzas(orden_id)",
             "CREATE INDEX IF NOT EXISTS idx_ventas_usuario ON ventas(usuario_id)",
             "CREATE INDEX IF NOT EXISTS idx_ventas_fecha ON ventas(fecha)",
             "CREATE INDEX IF NOT EXISTS idx_detalle_ventas_venta ON detalle_ventas(venta_id)",

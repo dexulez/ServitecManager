@@ -96,32 +96,29 @@ class CashFrame(ctk.CTkFrame):
         
         # Obtener ventas del POS del día actual
         try:
-            ventas_query = """SELECT id, fecha, total, pago_efectivo, pago_transferencia, pago_debito, pago_credito 
-                              FROM ventas 
-                              WHERE usuario_id = ? AND fecha >= ? 
-                              ORDER BY id DESC"""
+            ventas_query = """SELECT 
+                v.id, v.fecha, v.total_final, 
+                COALESCE(t.monto_efectivo, 0), 
+                COALESCE(t.monto_transferencia, 0), 
+                COALESCE(t.monto_debito, 0), 
+                COALESCE(t.monto_credito, 0)
+                FROM ventas v
+                LEFT JOIN transacciones t ON v.transaccion_id = t.id
+                WHERE v.usuario_id = ? AND v.fecha >= ? 
+                ORDER BY v.id DESC"""
             user_id = self.current_user['id'] if isinstance(self.current_user, dict) else self.current_user[0]
-            print(f"DEBUG CASH: user_id={user_id}, session fecha_apertura={session[2]}")
             ventas_pos = self.logic.bd.OBTENER_TODOS(ventas_query, (user_id, session[2]))
-            print(f"DEBUG CASH: Ventas encontradas: {len(ventas_pos)}")
-            if ventas_pos:
-                for v in ventas_pos:
-                    print(f"DEBUG CASH: Venta completa: {v}")
-                    print(f"DEBUG CASH: Tipo de dato: {type(v)}")
-                    if len(v) >= 7:
-                        print(f"DEBUG CASH: Venta ID={v[0]}, Fecha={v[1]}, Total={v[2]}, Efec={v[3]}")
         except Exception as e:
-            print(f"DEBUG CASH ERROR: {e}")
+            pass
             ventas_pos = []
         
-        # Obtener servicios cobrados (órdenes con finanzas cerradas) del día
+        # Obtener servicios cobrados (órdenes cerradas) del día
         try:
-            servicios_query = """SELECT o.id, o.equipo, o.modelo, f.total_cobrado, f.fecha_cierre, c.nombre
+            servicios_query = """SELECT o.id, o.equipo, o.modelo, o.presupuesto_inicial, o.fecha_entrada, c.nombre
                                  FROM ordenes o
-                                 JOIN finanzas f ON o.id = f.orden_id
                                  JOIN clientes c ON o.cliente_id = c.id
-                                 WHERE f.fecha_cierre >= ? 
-                                 ORDER BY f.fecha_cierre DESC"""
+                                 WHERE o.estado = 'Entregado' AND o.fecha_entrada >= ? 
+                                 ORDER BY o.fecha_entrada DESC"""
             servicios = self.logic.bd.OBTENER_TODOS(servicios_query, (session[2],))
         except:
             servicios = []
@@ -169,11 +166,11 @@ class CashFrame(ctk.CTkFrame):
                     oid = servicio.get('id', servicio[0] if len(servicio) > 0 else 0)
                     equipo = servicio.get('equipo', servicio[1] if len(servicio) > 1 else '')
                     modelo = servicio.get('modelo', servicio[2] if len(servicio) > 2 else '')
-                    total = servicio.get('total_cobrado', servicio[3] if len(servicio) > 3 else 0)
-                    fecha_cierre = servicio.get('fecha_cierre', servicio[4] if len(servicio) > 4 else '')
+                    total = servicio.get('presupuesto', servicio[3] if len(servicio) > 3 else 0)
+                    fecha = servicio.get('fecha', servicio[4] if len(servicio) > 4 else '')
                     cliente = servicio.get('nombre', servicio[5] if len(servicio) > 5 else 'CLIENTE')
                 else:
-                    oid, equipo, modelo, total, fecha_cierre, cliente = servicio
+                    oid, equipo, modelo, total, fecha, cliente = servicio
                 servicio_frame = ctk.CTkFrame(sales_scroll, fg_color=Theme.SURFACE, corner_radius=Theme.RADIUS_SMALL)
                 servicio_frame.pack(fill="x", pady=2, padx=2)
                 ctk.CTkLabel(servicio_frame, text=f"#{oid} - {cliente[:15]}", text_color=Theme.TEXT_SECONDARY, anchor="w", font=(Theme.FONT_FAMILY, 9)).pack(side="left", padx=5, pady=3)
@@ -295,8 +292,8 @@ class CashFrame(ctk.CTkFrame):
                                 f_inicio = last_session['fecha_apertura'] if isinstance(last_session, dict) else last_session[2]
                                 f_fin = last_session['fecha_cierre'] if isinstance(last_session, dict) else last_session[3]
                                 
-                                # Finanzas (Ordenes)
-                                res_t = self.logic.bd.OBTENER_UNO("SELECT SUM(monto_efectivo), SUM(monto_transferencia), SUM(monto_debito), SUM(monto_credito) FROM finanzas WHERE fecha_cierre >= ? AND fecha_cierre <= ?", (f_inicio, f_fin))
+                                # Finanzas (Ordenes consolidadas) - calcular desde pagos mixtos
+                                res_t = self.logic.bd.OBTENER_UNO("SELECT SUM(COALESCE(pago_efectivo,0)), SUM(COALESCE(pago_transferencia,0)), SUM(COALESCE(pago_debito,0)), SUM(COALESCE(pago_credito,0)) FROM ordenes WHERE estado = 'Entregado' AND fecha >= ? AND fecha <= ?", (f_inicio, f_fin))
                                 # Ventas (POS)
                                 res_p = self.logic.bd.OBTENER_UNO("SELECT SUM(pago_efectivo), SUM(pago_transferencia), SUM(pago_debito), SUM(pago_credito) FROM ventas WHERE fecha >= ? AND fecha <= ?", (f_inicio, f_fin))
                                 

@@ -178,10 +178,6 @@ class POSFrame(ctk.CTkFrame):
     def load_products(self):
         # CARGA DESDE LA TABLA 'INVENTARIO' (SOLO VENTAS)
         self.all_products = self.logic.inventory.get_products()
-        print(f"DEBUG POS: Productos cargados: {len(self.all_products)}")
-        if self.all_products:
-            for p in self.all_products[:3]:  # Mostrar los primeros 3
-                print(f"DEBUG POS: Producto: ID={p[0]}, Nombre={p[1]}, Precio={p[4] if len(p) > 4 else 'N/A'}")
         self.display_products(self.all_products)
 
     def filter_products(self, event):
@@ -320,9 +316,10 @@ class POSFrame(ctk.CTkFrame):
             if not full_order: 
                 continue
             
-            cliente = full_order[14] if len(full_order) > 14 else cli
-            presupuesto = full_order[12] if len(full_order) > 12 else 0
-            abono = full_order[13] if len(full_order) > 13 else 0
+            # Usar el nombre del cliente que viene del query dashboard (cli), no del full_order
+            cliente = str(cli) if cli and cli != 'SIN CLIENTE' else 'N/A'
+            presupuesto = float(full_order[14] or 0) if len(full_order) > 14 else 0.0  # [14] presupuesto_inicial
+            abono = float(full_order[20] or 0) if len(full_order) > 20 else 0.0  # [20] abono
             deuda = presupuesto - abono
             
             obs_raw = full_order[8] if len(full_order) > 8 else ""
@@ -377,37 +374,21 @@ class POSFrame(ctk.CTkFrame):
         ctk.CTkLabel(win, text=name, font=("Arial", 12, "bold")).pack(pady=10)
         v_rep = ctk.StringVar(); v_env = ctk.StringVar(); v_iva = ctk.BooleanVar(); v_card = ctk.BooleanVar()
         
-        # Cargar automáticamente los costos de repuestos y envío de la orden
+        # CRITICA #4: Cargar costos directamente de tabla ordenes (campos calculados por triggers)
         costo_rep = 0
         costo_env = 0
         try:
-            # Query para obtener costos detallados de detalles_orden
+            # Leer campos calculados directamente de ordenes
             query = """
-            SELECT tipo_item, SUM(costo) as total_costo
-            FROM detalles_orden 
-            WHERE orden_id = ? 
-            GROUP BY tipo_item
+            SELECT costo_total_repuestos, costo_envio
+            FROM ordenes 
+            WHERE id = ?
             """
-            print(f"DEBUG POS: Ejecutando query para orden_id: {order_id}")
-            resultados = self.logic.bd.OBTENER_TODOS(query, (order_id,))
-            print(f"DEBUG POS: Resultados de query: {resultados}")
+            resultado = self.logic.bd.OBTENER_UNO(query, (order_id,))
             
-            if resultados:
-                for row in resultados:
-                    tipo = row[0] if isinstance(row, tuple) else row.get('tipo_item', '')
-                    costo = row[1] if isinstance(row, tuple) else row.get('total_costo', 0)
-                    print(f"DEBUG POS: Procesando fila - tipo: {tipo}, costo: {costo}")
-                    
-                    if 'REPUESTO' in str(tipo).upper():
-                        costo_rep = int(costo) if costo else 0
-                        print(f"DEBUG POS: Costo REPUESTO asignado: {costo_rep}")
-                    elif 'ENVIO' in str(tipo).upper():
-                        costo_env = int(costo) if costo else 0
-                        print(f"DEBUG POS: Costo ENVIO asignado: {costo_env}")
-            else:
-                print(f"DEBUG POS: NO se encontraron resultados en detalles_orden para orden {order_id}")
-            
-            print(f"DEBUG POS: Costos finales - Repuestos: ${costo_rep}, Envío: ${costo_env}")
+            if resultado:
+                costo_rep = int(resultado[0]) if resultado[0] else 0
+                costo_env = int(resultado[1]) if resultado[1] else 0
             
             # Formatear con miles
             if costo_rep > 0:
@@ -416,7 +397,7 @@ class POSFrame(ctk.CTkFrame):
                 v_env.set(f"{costo_env:,}".replace(",", "."))
                 
         except Exception as e:
-            print(f"ERROR cargando costos de detalles_orden: {e}")
+            print(f"ERROR cargando costos de ordenes: {e}")
             import traceback
             traceback.print_exc()
         
@@ -487,15 +468,26 @@ class POSFrame(ctk.CTkFrame):
                 try:
                     monto_inicial = simpledialog.askfloat("ABRIR CAJA", "Ingrese monto inicial de caja:", minvalue=0)
                     if monto_inicial is not None:
-                        self.logic.cash.open_shift(user_id, monto_inicial)
-                        messagebox.showinfo("✅ CAJA ABIERTA", "Turno abierto correctamente. Proceda con el cobro.")
-                        # Reintentar checkout
-                        self.checkout()
-                        return
+                        resultado = self.logic.cash.open_shift(user_id, monto_inicial)
+                        if resultado:
+                            # Recargar sesión activa después de abrirla
+                            sesion_activa = self.logic.cash.get_active_session(user_id)
+                            if sesion_activa:
+                                messagebox.showinfo("✅ CAJA ABIERTA", "Turno abierto correctamente. Continúe con el cobro.")
+                                # NO llamar self.checkout() recursivamente - continuar con el flujo normal
+                            else:
+                                messagebox.showerror("Error", "La caja se abrió pero no se puede verificar la sesión.")
+                                return
+                        else:
+                            messagebox.showerror("Error", "No se pudo abrir la caja. Verifique que no haya una sesión abierta.")
+                            return
+                    else:
+                        return  # Usuario canceló el monto
                 except Exception as e:
                     messagebox.showerror("Error", f"No se pudo abrir la caja: {e}")
                     return
-            return
+            else:
+                return  # Usuario dijo que no
         
         # 2️⃣ CALCULAR TOTAL CONSIDERANDO ABONOSY DESCUENTOS
         total_final = self.get_final_total()
@@ -629,8 +621,6 @@ class POSFrame(ctk.CTkFrame):
                 precio = self.clean_money(v_price.get())
                 stock = int(e_stock.get() or 1)
                 
-                print(f"DEBUG POS: Guardando producto: {nombre}, costo={costo}, precio={precio}, stock={stock}, proveedor_id={proveedor_id}")
-                
                 if self.logic.inventory.add_product(nombre, costo, precio, stock, "GENERAL", proveedor_id):
                     messagebox.showinfo("ÉXITO", "ARTÍCULO AGREGADO", parent=top)
                     top.destroy()
@@ -638,7 +628,6 @@ class POSFrame(ctk.CTkFrame):
                 else: 
                     messagebox.showerror("ERROR", "EL ARTÍCULO YA EXISTE O NO SE PUDO GUARDAR", parent=top)
             except Exception as e:
-                print(f"DEBUG POS ERROR: {e}")
                 messagebox.showerror("ERROR", f"VERIFIQUE NÚMEROS: {e}", parent=top)
             
         ctk.CTkButton(top, text="GUARDAR", command=save, fg_color="green", height=40).pack(pady=20, padx=10, fill="x")

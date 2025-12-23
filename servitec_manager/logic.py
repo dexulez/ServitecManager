@@ -28,17 +28,17 @@ class GESTOR_CLIENTES:
     def __init__(self, gestor_bd):
         self.bd = gestor_bd
     def AGREGAR_CLIENTE(self, rut, nombre, teléfono, correo):
-        try: return self.bd.EJECUTAR_CONSULTA("INSERT INTO clientes (rut, nombre, telefono, email) VALUES (?, ?, ?, ?)", (rut.upper(), nombre.upper(), teléfono, correo.upper()))
+        try: return self.bd.EJECUTAR_CONSULTA("INSERT INTO clientes (cedula, nombre, telefono, email) VALUES (?, ?, ?, ?)", (rut.upper(), nombre.upper(), teléfono, correo.upper()))
         except: return False
     def ACTUALIZAR_CLIENTE(self, rut, nombre, teléfono, correo):
         try:
-            self.bd.EJECUTAR_CONSULTA("UPDATE clientes SET nombre = ?, telefono = ?, email = ? WHERE rut = ?", (nombre.upper(), teléfono, correo.upper(), rut.upper()))
+            self.bd.EJECUTAR_CONSULTA("UPDATE clientes SET nombre = ?, telefono = ?, email = ? WHERE cedula = ?", (nombre.upper(), teléfono, correo.upper(), rut.upper()))
             return True
         except: return False
-    def OBTENER_CLIENTE(self, rut): return self.bd.OBTENER_UNO("SELECT * FROM clientes WHERE rut = ?", (rut.upper(),))
+    def OBTENER_CLIENTE(self, rut): return self.bd.OBTENER_UNO("SELECT * FROM clientes WHERE cedula = ?", (rut.upper(),))
     def BUSCAR_CLIENTES(self, consulta):
         q = consulta.upper(); qc = ''.join(filter(lambda x: x.isalnum(), q))
-        return self.bd.OBTENER_TODOS("SELECT * FROM clientes WHERE NOMBRE LIKE ? OR REPLACE(REPLACE(rut, '.', ''), '-', '') LIKE ? LIMIT 50", (f"%{q}%", f"%{qc}%"))
+        return self.bd.OBTENER_TODOS("SELECT * FROM clientes WHERE NOMBRE LIKE ? OR REPLACE(REPLACE(cedula, '.', ''), '-', '') LIKE ? LIMIT 50", (f"%{q}%", f"%{qc}%"))
     BUSCAR_CLIENTE = OBTENER_CLIENTE
     # Compatibilidad
     add_client = AGREGAR_CLIENTE
@@ -975,14 +975,22 @@ class GESTOR_PEDIDOS:
 class GESTOR_ORDENES:
     def __init__(self, gestor_bd): self.bd = gestor_bd
     def OBTENER_ÓRDENES_POR_TÉCNICO(self, datos_usuario):
-        uid, _, _, rol, _ = datos_usuario
+        # Soporte para diferentes formatos de datos_usuario
+        if isinstance(datos_usuario, dict):
+            uid = datos_usuario['id']
+            rol = datos_usuario['rol']
+        else:
+            # datos_usuario es tupla: (id, nombre, password, rol, porcentaje_comision, activo, fecha_creacion)
+            uid = datos_usuario[0]
+            rol = datos_usuario[3] if len(datos_usuario) > 3 else 'TÉCNICO'
+        
         sql = "SELECT o.*, c.nombre FROM ordenes o LEFT JOIN clientes c ON o.cliente_id = c.id WHERE (o.tecnico_id = ? OR UPPER(o.estado) = 'PENDIENTE' OR o.estado IS NULL) AND (UPPER(o.estado) != 'ENTREGADO') ORDER BY o.id DESC LIMIT 200"
-        if rol in ['GERENTE', 'ADMINISTRADOR', 'RECEPCIONISTA']:
+        if rol and rol.upper() in ['GERENTE', 'ADMINISTRADOR', 'RECEPCIONISTA']:
              return self.bd.OBTENER_TODOS("SELECT o.*, c.nombre FROM ordenes o LEFT JOIN clientes c ON o.cliente_id = c.id WHERE UPPER(o.estado) != 'ENTREGADO' ORDER BY o.id DESC LIMIT 200")
         return self.bd.OBTENER_TODOS(sql, (uid,))
     def OBTENER_ORDEN_POR_ID(self, orden_id): return self.bd.OBTENER_UNO("SELECT o.*, c.nombre FROM ordenes o LEFT JOIN clientes c ON o.cliente_id = c.id WHERE o.id = ?", (orden_id,))
     def OBTENER_DATOS_TICKET(self, orden_id):
-        return self.bd.OBTENER_UNO("SELECT o.*, c.rut, c.nombre, c.telefono, c.email FROM ordenes o JOIN clientes c ON o.cliente_id = c.id WHERE o.id = ?", (orden_id,))
+        return self.bd.OBTENER_UNO("SELECT o.*, c.cedula, c.nombre, c.telefono, c.email FROM ordenes o JOIN clientes c ON o.cliente_id = c.id WHERE o.id = ?", (orden_id,))
     def OBTENER_HISTORIAL_CLIENTE(self, cid): return self.bd.OBTENER_TODOS("SELECT * FROM ordenes WHERE CLIENTE_ID = ? ORDER BY ID DESC LIMIT 10", (cid,))
     def OBTENER_ÓRDENES_DASHBOARD(self): return self.bd.OBTENER_TODOS("SELECT o.id, o.equipo, o.modelo, o.estado, u.nombre AS tecnico, c.nombre AS cliente FROM ordenes o LEFT JOIN usuarios u ON o.tecnico_id = u.id LEFT JOIN clientes c ON o.cliente_id = c.id WHERE UPPER(o.estado) != 'ENTREGADO' ORDER BY o.id DESC LIMIT 100")
     def OBTENER_ESTADÍSTICAS_ÓRDENES(self): return self.bd.OBTENER_TODOS("SELECT estado, COUNT(*) AS cantidad FROM ordenes GROUP BY ESTADO")
@@ -999,17 +1007,34 @@ class GESTOR_ORDENES:
             return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET estado = ?, condicion = ? WHERE id = ?", (estado, condicion, orden_id))
         else:
             return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET estado = ? WHERE id = ?", (estado, orden_id))
+    
+    def ACTUALIZAR_CONDICION(self, orden_id, condicion):
+        """Actualiza la condición de una orden (PENDIENTE, SOLUCIONADO, SIN SOLUCIÓN)
+        Si la condición es 'SIN SOLUCIÓN', establece total_a_cobrar = 0"""
+        if condicion == "SIN SOLUCIÓN":
+            # Poner total_a_cobrar en 0 cuando no tiene solución
+            return self.bd.EJECUTAR_CONSULTA(
+                "UPDATE ordenes SET condicion = ?, total_a_cobrar = 0 WHERE id = ?", 
+                (condicion, orden_id)
+            )
+        else:
+            return self.bd.EJECUTAR_CONSULTA(
+                "UPDATE ordenes SET condicion = ? WHERE id = ?", 
+                (condicion, orden_id)
+            )
+    
+    def ANULAR_COBRO_ORDEN(self, orden_id):
+        """Anula el cobro de una orden (pone total_a_cobrar y abono en 0) - usado para SIN SOLUCIÓN"""
+        return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET total_a_cobrar = 0, abono = 0 WHERE id = ?", (orden_id,))
+    
     def ACTUALIZAR_TÉCNICO_ORDEN(self, orden_id, técnico_id): return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET tecnico_id = ? WHERE id = ?", (técnico_id, orden_id))
     
     def PUEDE_EDITAR_ORDEN(self, orden_id):
-        """Verifica si una orden puede ser editada (no tiene finanzas cerradas ni está entregada)"""
+        """Verifica si una orden puede ser editada (no está entregada)"""
         orden = self.bd.OBTENER_UNO("SELECT estado FROM ordenes WHERE id = ?", (orden_id,))
         if not orden: return False
-        # Verificar si ya tiene finanzas cerradas
-        finanzas = self.bd.OBTENER_UNO("SELECT id FROM finanzas WHERE orden_id = ?", (orden_id,))
-        if finanzas: return False
         # Verificar si ya fue entregada
-        if orden[0] == "ENTREGADO": return False
+        if orden[0] and orden[0].upper() == "ENTREGADO": return False
         return True
     
     def ACTUALIZAR_ORDEN(self, orden_id, tid, tipo, marca, modelo, serie, falla, obs, accesorios, riesgoso, presupuesto, descuento, abono, fecha_entrega=None):
@@ -1028,19 +1053,41 @@ class GESTOR_ORDENES:
         return True  # Si llegamos aquí, la actualización fue exitosa
     
     def CERRAR_ORDEN_FINANZAS(self, orden_id, total, repuestos, envío, efectivo, transferencia, tarjeta, con_iva, pct_tec):
-        if self.bd.OBTENER_UNO("SELECT ID FROM finanzas WHERE ORDEN_ID = ?", (orden_id,)): return False
+        """Cierra orden actualizando campos financieros en tabla ordenes (NO inserta en finanzas - eliminada)
+        
+        CAMBIO CRITICA #1: Antes insería en tabla 'finanzas' que ya no existe.
+        AHORA: Actualiza campos en tabla 'ordenes' directamente.
+        Los triggers automáticos calcularán: total_a_cobrar, saldo_pendiente, utilidad_bruta
+        """
+        # Obtener porcentaje de comisión del técnico si no se especifica
         if pct_tec == 0:
             odata = self.bd.OBTENER_UNO("SELECT tecnico_id FROM ordenes WHERE id = ?", (orden_id,))
             if odata:
                 tdata = self.bd.OBTENER_UNO("SELECT PORCENTAJE_COMISION FROM usuarios WHERE ID = ?", (odata[0],))
                 if tdata: pct_tec = tdata[0]
+        
+        # Calcular valores PERO NO insertar en finanzas (triggers de BD lo harán automáticamente)
         m_iva = total * 0.19 if con_iva else 0
         m_banco = tarjeta * 0.0295
         util = (total - m_banco) - repuestos - envío
         util_com = util * 0.81 if con_iva else util
         com_tec = max(0, util_com * (pct_tec / 100))
+        
+        # Marcar como ENTREGADO
         self.ACTUALIZAR_ESTADO(orden_id, "ENTREGADO")
-        return self.bd.EJECUTAR_CONSULTA("INSERT INTO finanzas (orden_id, total_cobrado, costo_repuesto, costo_envio, monto_efectivo, monto_transferencia, monto_debito, monto_credito, aplicó_iva, utilidad_real, monto_comision_tecnico, fecha_cierre) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))", (orden_id, total, repuestos, envío, efectivo, transferencia, tarjeta, 0, 1 if con_iva else 0, util_com, com_tec))
+        
+        # Actualizar campos de pago en tabla ordenes (CONFIAR EN TRIGGERS para campos calculados)
+        return self.bd.EJECUTAR_CONSULTA(
+            """UPDATE ordenes SET 
+               fecha_cierre = datetime('now'), 
+               pago_efectivo = ?, 
+               pago_transferencia = ?, 
+               pago_tarjeta = ?, 
+               costo_total_servicios = ?, 
+               comision_tecnico = ? 
+               WHERE id = ?""",
+            (efectivo, transferencia, tarjeta, repuestos, com_tec, orden_id)
+        )
     
     # Compatibilidad
     get_orders_by_tech = OBTENER_ÓRDENES_POR_TÉCNICO
@@ -1059,9 +1106,10 @@ class GESTOR_ORDENES:
 
 # --- INVENTARIO Y VENTAS ---
 class GESTOR_INVENTARIO:
-    def __init__(self, gestor_bd, cache_inteligente=None): 
+    def __init__(self, gestor_bd, cache_inteligente=None, gestor_caja=None): 
         self.bd = gestor_bd
         self._cache_inteligente = cache_inteligente
+        self._gestor_caja = gestor_caja  # Referencia al gestor de caja
         self._productos_cache = None
         self._cache_timestamp = 0
     
@@ -1139,29 +1187,107 @@ class GESTOR_INVENTARIO:
             self._cache_inteligente.invalidar_inventario()
         return result
     def PROCESAR_VENTA(self, usuario_id, carrito, pagos, total_venta, descuento):
-        venta_id = self.bd.EJECUTAR_CONSULTA("INSERT INTO ventas (usuario_id, fecha, total, descuento, pago_efectivo, pago_transferencia, pago_debito, pago_credito) VALUES (?, datetime('now'), ?, ?, ?, ?, ?, ?)", (usuario_id, total_venta, descuento, pagos['efectivo'], pagos['transferencia'], pagos['debito'], pagos['credito']))
+        # Obtener sesión de caja activa (necesaria para transacciones)
+        if not self._gestor_caja:
+            print("❌ ERROR: Gestor de caja no configurado")
+            return False
+        
+        sesion = self._gestor_caja.OBTENER_SESIÓN_ACTIVA(usuario_id)
+        if not sesion:
+            print("❌ ERROR: No hay sesión de caja activa")
+            return False
+        sesion_id = sesion[0]
+        
+        # Calcular total_productos (suma de productos en el carrito que no son servicios/órdenes)
+        total_productos = sum(item[2] * item[3] for item in carrito if not item[4])  # item[4] es es_servicio
+        total_final = total_venta - descuento
+        
+        # Crear registro de venta (sin transaccion_id por ahora)
+        venta_id = self.bd.EJECUTAR_CONSULTA(
+            "INSERT INTO ventas (usuario_id, fecha, total_productos, descuento, total_final) VALUES (?, datetime('now'), ?, ?, ?)", 
+            (usuario_id, total_productos, descuento, total_final)
+        )
         if not venta_id: return False
+        
+        # Crear transacción de pago asociada (solo si hay montos > 0)
+        total_pago = pagos['efectivo'] + pagos['transferencia'] + pagos['debito'] + pagos['credito']
+        if total_pago > 0:
+            transaccion_id = self.bd.EJECUTAR_CONSULTA(
+                """INSERT INTO transacciones (
+                    tipo, monto_total, monto_final, 
+                    monto_efectivo, monto_transferencia, monto_debito, monto_credito, 
+                    usuario_id, sesion_caja_id, fecha, referencia_id, referencia_tipo
+                ) VALUES ('VENTA_PRODUCTO', ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'), ?, 'venta')""",
+                (total_venta, total_final, 
+                 pagos['efectivo'], pagos['transferencia'], pagos['debito'], pagos['credito'], 
+                 usuario_id, sesion_id, venta_id)
+            )
+            # Enlazar transacción con venta
+            if transaccion_id:
+                self.bd.EJECUTAR_CONSULTA("UPDATE ventas SET transaccion_id = ? WHERE id = ?", (transaccion_id, venta_id))
+        
         for item in carrito:
             producto_id, nombre, cantidad, precio, es_servicio, detalles = item
             subtotal = cantidad * precio
             if not es_servicio:
+                # Es un producto del inventario
                 self.bd.EJECUTAR_CONSULTA("UPDATE inventario SET STOCK = STOCK - ? WHERE ID = ?", (cantidad, producto_id))
-                self.bd.EJECUTAR_CONSULTA("INSERT INTO detalle_ventas (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)", (venta_id, producto_id, cantidad, precio, subtotal))
+                self.bd.EJECUTAR_CONSULTA("INSERT INTO venta_detalles (venta_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)", (venta_id, producto_id, cantidad, precio, subtotal))
             else:
+                # Es un servicio (orden) - NO se inserta en venta_detalles, solo se cierra la orden
                 orden_id = producto_id
-                self.bd.EJECUTAR_CONSULTA("INSERT INTO detalle_ventas (venta_id, orden_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)", (venta_id, orden_id, cantidad, precio, subtotal))
+                
+                # Obtener datos del técnico para comisión
                 odata = self.bd.OBTENER_UNO("SELECT tecnico_id FROM ordenes WHERE id = ?", (orden_id,))
                 pct_tec = 0
                 if odata:
                     tdata = self.bd.OBTENER_UNO("SELECT PORCENTAJE_COMISION FROM usuarios WHERE ID = ?", (odata[0],))
                     if tdata: pct_tec = tdata[0]
-                tot = precio; rep = detalles.get('rep', 0); env = detalles.get('env', 0); con_iva = detalles.get('iva', False); 
-                con_tarjeta = detalles.get('card', False)
-                m_tarjeta_calc = tot if con_tarjeta else 0
                 
-                # Insertamos solo si no existe (protección doble)
-                if not self.bd.OBTENER_UNO("SELECT ID FROM finanzas WHERE ORDEN_ID = ?", (orden_id,)):
-                    m_iva = tot * 0.19 if con_iva else 0; m_banco = m_tarjeta_calc * 0.0295; util = (tot - m_banco) - rep - env
+                # ⚠️ CORRECCIÓN CRÍTICA: CERRAR ORDEN ACTUALIZANDO CAMPOS FINANCIEROS
+                # Los triggers calcularán automáticamente: total_a_cobrar, saldo_pendiente, utilidad_bruta
+                tot = precio
+                rep = detalles.get('rep', 0)
+                env = detalles.get('env', 0)
+                con_iva = detalles.get('iva', False)
+                con_tarjeta = detalles.get('card', False)
+                
+                # Calcular comisión técnico
+                m_tarjeta_calc = tot if con_tarjeta else 0
+                m_iva = tot * 0.19 if con_iva else 0
+                m_banco = m_tarjeta_calc * 0.0295
+                util = (tot - m_banco) - rep - env
+                util_com = util * 0.81 if con_iva else util
+                com_tec = max(0, util_com * (pct_tec / 100))
+                
+                # Distribuir pagos mixtos proporcionalmente
+                # Si la venta total tiene múltiples servicios, distribuir pagos proporcionalmente
+                proporcion = precio / total_venta if total_venta > 0 else 1
+                pago_efec_orden = pagos['efectivo'] * proporcion
+                pago_trf_orden = pagos['transferencia'] * proporcion
+                pago_deb_orden = pagos['debito'] * proporcion
+                pago_cred_orden = pagos['credito'] * proporcion
+                
+                # 🔥 ACTUALIZAR ORDEN CON CIERRE FINANCIERO COMPLETO
+                self.bd.EJECUTAR_CONSULTA(
+                    """UPDATE ordenes SET 
+                       fecha_cierre = datetime('now'),
+                       usuario_cierre_id = ?,
+                       pago_efectivo = ?,
+                       pago_transferencia = ?,
+                       pago_debito = ?,
+                       pago_credito = ?,
+                       costo_total_servicios = ?,
+                       costo_envio = ?,
+                       comision_tecnico = ?,
+                       estado = 'Entregado',
+                       condicion = COALESCE(condicion, 'SOLUCIONADO')
+                       WHERE id = ?""",
+                    (usuario_id, pago_efec_orden, pago_trf_orden, pago_deb_orden, pago_cred_orden, 
+                     rep, env, com_tec, orden_id)
+                )
+                print(f"✅ Orden #{orden_id} cerrada: Efectivo=${pago_efec_orden:.0f}, Transferencia=${pago_trf_orden:.0f}, Débito=${pago_deb_orden:.0f}, Crédito=${pago_cred_orden:.0f}")
+                
         return venta_id
     
     # Compatibilidad
@@ -1176,10 +1302,10 @@ class GESTOR_INVENTARIO:
 
 class GESTOR_CAJA:
     def __init__(self, gestor_bd): self.bd = gestor_bd
-    def OBTENER_SESIÓN_ACTIVA(self, usuario_id): return self.bd.OBTENER_UNO("SELECT * FROM caja_sesiones WHERE usuario_id = ? AND estado = 'ABIERTA'", (usuario_id,))
+    def OBTENER_SESIÓN_ACTIVA(self, usuario_id): return self.bd.OBTENER_UNO("SELECT * FROM caja_sesiones WHERE usuario_id = ? AND estado = 'ABIERTO'", (usuario_id,))
     def ABRIR_TURNO(self, usuario_id, monto):
         if self.OBTENER_SESIÓN_ACTIVA(usuario_id): return False
-        return self.bd.EJECUTAR_CONSULTA("INSERT INTO caja_sesiones (usuario_id, fecha_apertura, monto_inicial, estado) VALUES (?, datetime('now'), ?, 'ABIERTA')", (usuario_id, monto))
+        return self.bd.EJECUTAR_CONSULTA("INSERT INTO caja_sesiones (usuario_id, fecha_apertura, monto_inicial, estado) VALUES (?, datetime('now'), ?, 'ABIERTO')", (usuario_id, monto))
     
     def AGREGAR_GASTO(self, usuario_id, descripción, monto):
         sesión = self.OBTENER_SESIÓN_ACTIVA(usuario_id)
@@ -1194,12 +1320,24 @@ class GESTOR_CAJA:
     def OBTENER_VENTAS_TURNO_ACTUAL(self, usuario_id):
         sesión = self.OBTENER_SESIÓN_ACTIVA(usuario_id)
         if not sesión: return (0,0,0,0)
-        # Finanzas (Órdenes) - No filtramos por usuario_id porque las órdenes pueden ser de varios técnicos
-        res_t = self.bd.OBTENER_UNO("SELECT SUM(monto_efectivo), SUM(monto_transferencia), SUM(monto_debito), SUM(monto_credito) FROM finanzas WHERE FECHA_CIERRE >= ?", (sesión[2],))
-        # Ventas (POS) - Filtramos por usuario_id para obtener solo las ventas del cajero actual
-        res_p = self.bd.OBTENER_UNO("SELECT SUM(pago_efectivo), SUM(pago_transferencia), SUM(pago_debito), SUM(pago_credito) FROM ventas WHERE usuario_id = ? AND FECHA >= ?", (usuario_id, sesión[2],))
         
-        return ((res_t[0] or 0)+(res_p[0] or 0), (res_t[1] or 0)+(res_p[1] or 0), (res_t[2] or 0)+(res_p[2] or 0), (res_t[3] or 0)+(res_p[3] or 0))
+        # Ventas (POS) - Obtener pagos desde transacciones vinculadas a ventas
+        # La tabla ventas tiene transaccion_id que enlaza con transacciones
+        res_p = self.bd.OBTENER_UNO("""
+            SELECT 
+                COALESCE(SUM(t.monto_efectivo), 0), 
+                COALESCE(SUM(t.monto_transferencia), 0), 
+                COALESCE(SUM(t.monto_debito), 0), 
+                COALESCE(SUM(t.monto_credito), 0)
+            FROM ventas v 
+            LEFT JOIN transacciones t ON v.transaccion_id = t.id
+            WHERE v.usuario_id = ? AND v.fecha >= ?
+        """, (usuario_id, sesión[2],))
+        
+        if not res_p or res_p[0] is None:
+            return (0, 0, 0, 0)
+        
+        return (res_p[0] or 0, res_p[1] or 0, res_p[2] or 0, res_p[3] or 0)
 
     def CERRAR_TURNO(self, usuario_id, r_efec, r_trf, r_deb, r_cred):
         sesión = self.OBTENER_SESIÓN_ACTIVA(usuario_id)
@@ -1250,31 +1388,79 @@ class GESTOR_CAJA:
 class GESTOR_REPORTES:
     def __init__(self, gestor_bd): self.bd = gestor_bd
     def OBTENER_HISTORIAL_TECNICO(self, tecnico_id, fecha_inicio=None, fecha_fin=None):
-        consulta = "SELECT o.id, o.equipo, o.modelo, f.fecha_cierre, f.total_cobrado, f.costo_repuesto, f.monto_comision_tecnico, f.monto_debito, f.monto_credito, f.aplicó_iva, f.costo_envio FROM ORDENES o JOIN finanzas f ON o.id = f.orden_id WHERE o.tecnico_id = ?"
+        consulta = """SELECT 
+            o.id, 
+            o.equipo, 
+            o.modelo, 
+            o.fecha_cierre, 
+            o.total_a_cobrar, 
+            o.costo_total_repuestos, 
+            o.comision_tecnico, 
+            o.pago_debito, 
+            o.pago_credito, 
+            0 as aplicó_iva, 
+            o.costo_envio 
+        FROM ordenes o 
+        WHERE o.tecnico_id = ? AND o.fecha_cierre IS NOT NULL AND o.estado = 'Entregado'"""
         parámetros = [tecnico_id]
         if fecha_inicio and fecha_fin:
-            consulta += " AND date(f.fecha_cierre) BETWEEN ? AND ?"
+            consulta += " AND date(o.fecha_cierre) BETWEEN ? AND ?"
             parámetros.extend([fecha_inicio, fecha_fin])
-        consulta += " ORDER BY f.fecha_cierre DESC"
+        consulta += " ORDER BY o.fecha_cierre DESC"
         return self.bd.OBTENER_TODOS(consulta, tuple(parámetros))
-    def OBTENER_VENTAS_DIARIAS(self): return self.bd.OBTENER_TODOS("SELECT f.id, o.id, o.equipo, u.nombre, f.total_cobrado, f.utilidad_real, f.fecha_cierre, f.monto_comision_tecnico FROM finanzas f JOIN ORDENES o ON f.orden_id = o.id JOIN usuarios u ON o.tecnico_id = u.id WHERE date(f.fecha_cierre) = date('now')")
+    def OBTENER_VENTAS_DIARIAS(self): return self.bd.OBTENER_TODOS("""SELECT 
+        o.id, 
+        o.id as orden_id, 
+        o.equipo, 
+        u.nombre, 
+        o.total_a_cobrar, 
+        o.utilidad_bruta, 
+        o.fecha_cierre, 
+        o.comision_tecnico 
+    FROM ordenes o 
+    JOIN usuarios u ON o.tecnico_id = u.id 
+    WHERE date(o.fecha_cierre) = date('now') AND o.fecha_cierre IS NOT NULL AND o.estado = 'Entregado'""")
 
     def OBTENER_HISTORIAL_COMPLETO_ORDENES(self):
         return self.bd.OBTENER_TODOS("""
-            SELECT o.id, o.fecha, c.nombre AS cliente_nombre, o.equipo || ' ' || o.modelo AS equipo_completo, u.nombre AS tecnico_nombre, o.estado, o.observacion, o.fecha_entrega, (o.presupuesto - COALESCE(o.abono, 0)) AS saldo_pendiente, f.fecha_cierre
-            FROM ORDENES o
+            SELECT 
+                o.id,                                    -- 0: ID
+                o.fecha_entrada,                         -- 1: FECHA
+                c.nombre AS cliente_nombre,              -- 2: CLIENTE
+                o.equipo || ' ' || o.modelo AS equipo_completo,  -- 3: EQUIPO
+                u.nombre AS tecnico_nombre,              -- 4: TÉCNICO
+                o.observacion,                           -- 5: OBSERVACIONES
+                o.estado,                                -- 6: ESTADO
+                COALESCE(o.condicion, 'PENDIENTE') AS condicion,  -- 7: CONDICIÓN
+                o.fecha_entrega,                         -- 8: F.ENTREGA
+                COALESCE(o.presupuesto_inicial, 0) AS total      -- 9: TOTAL
+            FROM ordenes o
             LEFT JOIN clientes c ON o.cliente_id = c.id
             LEFT JOIN usuarios u ON o.tecnico_id = u.id
-            LEFT JOIN finanzas f ON o.id = f.orden_id
             ORDER BY o.id DESC
         """)
 
     def OBTENER_FINANZAS_ORDEN(self, orden_id):
-        return self.bd.OBTENER_UNO("SELECT * FROM finanzas WHERE ORDEN_ID = ?", (orden_id,))
+        """Obtiene información financiera de una orden (ahora directo de tabla ordenes)"""
+        return self.bd.OBTENER_UNO("""
+            SELECT 
+                id,
+                total_a_cobrar,
+                costo_total_repuestos,
+                costo_envio,
+                pago_efectivo,
+                pago_transferencia,
+                pago_debito,
+                pago_credito,
+                utilidad_bruta,
+                comision_tecnico,
+                fecha_cierre
+            FROM ordenes WHERE id = ?
+        """, (orden_id,))
 
     def OBTENER_HISTORIAL_COMPLETO_VENTAS(self):
         return self.bd.OBTENER_TODOS("""
-            SELECT v.id, v.fecha, u.nombre, v.total, v.pago_efectivo, v.pago_transferencia, v.pago_debito, v.pago_credito
+            SELECT v.id, v.fecha, u.nombre, v.total_final, 0 as pago_efectivo, 0 as pago_transferencia, 0 as pago_debito, 0 as pago_credito
             FROM ventas v
             LEFT JOIN usuarios u ON v.usuario_id = u.id
             ORDER BY v.id DESC
@@ -1301,11 +1487,11 @@ class GESTOR_LOGICA:
         self.bd = gestor_bd
         self._cache = cache_inteligente
         
-        # Inicializar gestores con caché
+        # Inicializar gestores con caché (caja primero, porque inventario lo necesita)
         self.clientes = GESTOR_CLIENTES(gestor_bd)
         self.ordenes = GESTOR_ORDENES(gestor_bd)
-        self.inventario = GESTOR_INVENTARIO(gestor_bd, cache_inteligente)
-        self.caja = GESTOR_CAJA(gestor_bd)
+        self.caja = GESTOR_CAJA(gestor_bd)  # Crear caja primero
+        self.inventario = GESTOR_INVENTARIO(gestor_bd, cache_inteligente, self.caja)  # Pasar referencia a caja
         self.reportes = GESTOR_REPORTES(gestor_bd)
         self.modelos = GESTOR_MODELOS(gestor_bd)
         self.marcas = GESTOR_MARCAS(gestor_bd)

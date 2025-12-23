@@ -34,7 +34,7 @@ def EJECUTAR_MIGRACIONES():
     import sqlite3
     import os
     
-    db_path = 'SERVITEC.DB'
+    db_path = 'SERVITEC_TEST_OPTIMIZED.DB'
     
     # Si no existe la base de datos, no hacer nada (se creará con la estructura correcta)
     if not os.path.exists(db_path):
@@ -44,25 +44,51 @@ def EJECUTAR_MIGRACIONES():
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
         
-        # Verificar si existe la columna descuento
+        # Verificar y migrar columnas financieras completas
         cursor.execute("PRAGMA table_info(ordenes)")
-        columnas = cursor.fetchall()
-        columnas_nombres = [col[1] for col in columnas]
+        columnas_actuales = [col[1] for col in cursor.fetchall()]
         
-        if 'descuento' not in columnas_nombres:
-            print("🔧 Aplicando migración: agregando columna 'descuento'...")
-            
-            # Desactivar foreign keys temporalmente
-            cursor.execute("PRAGMA foreign_keys = OFF")
-            
-            # Agregar columna con valor por defecto
-            cursor.execute("ALTER TABLE ordenes ADD COLUMN descuento INTEGER DEFAULT 0")
-            
-            # Reactivar foreign keys
-            cursor.execute("PRAGMA foreign_keys = ON")
-            
-            conn.commit()
-            print("✅ Migración completada: columna 'descuento' agregada")
+        # Mapeo de columnas antiguas a nuevas
+        migraciones = [
+            ('fecha', 'fecha_entrada'),  # Renombrar fecha a fecha_entrada
+            ('presupuesto', 'presupuesto_inicial'),  # Renombrar presupuesto a presupuesto_inicial
+        ]
+        
+        # Columnas financieras nuevas a agregar
+        columnas_financieras = [
+            ('condicion', "TEXT CHECK(condicion IN ('PENDIENTE', 'SOLUCIONADO', 'SIN SOLUCIÓN')) DEFAULT 'PENDIENTE'"),
+            ('presupuesto_inicial', 'REAL DEFAULT 0'),
+            ('costo_total_repuestos', 'REAL DEFAULT 0'),
+            ('costo_total_servicios', 'REAL DEFAULT 0'),
+            ('costo_envio', 'REAL DEFAULT 0'),
+            ('total_a_cobrar', 'REAL DEFAULT 0'),
+            ('saldo_pendiente', 'REAL DEFAULT 0'),
+            ('utilidad_bruta', 'REAL DEFAULT 0'),
+            ('comision_tecnico', 'REAL DEFAULT 0'),
+            ('pago_efectivo', 'REAL DEFAULT 0'),
+            ('pago_transferencia', 'REAL DEFAULT 0'),
+            ('pago_debito', 'REAL DEFAULT 0'),
+            ('pago_credito', 'REAL DEFAULT 0'),
+            ('fecha_cierre', 'TEXT'),
+            ('usuario_cierre_id', 'INTEGER'),
+        ]
+        
+        for col_nombre, col_tipo in columnas_financieras:
+            if col_nombre not in columnas_actuales:
+                try:
+                    cursor.execute(f"ALTER TABLE ordenes ADD COLUMN {col_nombre} {col_tipo}")
+                    print(f"✅ Columna '{col_nombre}' agregada")
+                except Exception as e:
+                    if 'duplicate' not in str(e).lower():
+                        print(f"⚠️ Error agregando {col_nombre}: {e}")
+        
+        # Si la tabla tiene la columna 'presupuesto' pero no 'presupuesto_inicial', copiar datos
+        if 'presupuesto' in columnas_actuales and 'presupuesto_inicial' in columnas_actuales:
+            cursor.execute("UPDATE ordenes SET presupuesto_inicial = presupuesto WHERE presupuesto_inicial = 0 OR presupuesto_inicial IS NULL")
+            cursor.execute("UPDATE ordenes SET total_a_cobrar = presupuesto_inicial - COALESCE(descuento, 0) WHERE total_a_cobrar = 0")
+            print("✅ Datos migrados de presupuesto a presupuesto_inicial")
+        
+        conn.commit()
         
         # Crear tabla de cuentas bancarias si no existe
         try:
