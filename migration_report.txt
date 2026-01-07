@@ -1,0 +1,16 @@
+================================================================================
+REPORTE DE MIGRACIÓN DE DATOS - FASE 2
+================================================================================
+Timestamp: 2025-12-18T12:58:36.693279
+BD Original: servitec_manager/SERVITEC_TEST.DB
+BD Prueba: servitec_manager/SERVITEC_TEST_OPTIMIZED.DB
+
+REGISTROS MIGRADOS:
+  usuarios: 4 registros
+  clientes: 2 registros
+  ordenes: 2 registros
+  repuestos: 4 registros
+
+TOTAL: 12 registros
+
+================================================================================

@@ -216,7 +216,7 @@ class WorkshopFrame(ctk.CTkFrame):
                         text_color=Theme.TEXT_SECONDARY).pack(pady=(0,20))
             return
         for order in orders:
-            oid = order[0]; cliente = order[14] if len(order)>14 and order[14] else "GENÉRICO"; modelo = f"{order[5]} {order[6]}"; estado = order[9]
+            oid = order[0]; cliente = order[16] if len(order)>16 and order[16] else "GENÉRICO"; modelo = f"{order[5]} {order[6]}"; estado = order[9]
             card = ctk.CTkFrame(self.scrollable_frame, **Theme.get_card_style())
             card.pack(fill="x", pady=5, padx=5)
             ctk.CTkLabel(card, text=f"🔧 ORDEN #{oid}", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), text_color=Theme.PRIMARY).pack(anchor="w", padx=10, pady=(5,0))
@@ -245,11 +245,24 @@ class WorkshopFrame(ctk.CTkFrame):
         self.chk_iva.configure(state="normal")
 
     def show_details(self, order):
+        """CRITICA #5: Actualización de índices para nuevo schema de 15 tablas
+        
+        Schema ANTIGUO (21 tablas):
+        - order[12] = presupuesto, order[13] = descuento, order[14] = abono, order[16] = cliente
+        
+        Schema NUEVO (15 tablas - ordenes consolidada):
+        - order[13] = presupuesto_inicial, order[17] = descuento, order[19] = abono, order[último] = cliente
+        """
         self.current_order_data = order
         self.selected_order_id = order[0]
-        cliente = order[14] if len(order)>14 else "DESCONOCIDO"; equipo = f"{order[4]} {order[5]} {order[6]}"; serie = order[7]; obs = order[8]; estado = order[9]; 
-        presupuesto = order[12]; abono = order[13]; tech_id = order[2]
-        descuento = order[16] if len(order) > 16 else 0
+        
+        # Mapeo de campos según nuevo schema (presupuesto_inicial en índice 13, abono en 19)
+        equipo = f"{order[5]} {order[6]} {order[7]}"  # equipo, marca, modelo
+        serie = order[8]; obs = order[9]; estado = order[12]; tech_id = order[2]
+        presupuesto = order[13]  # presupuesto_inicial en nuevo schema
+        descuento = order[17] if len(order) > 17 else 0
+        abono = order[19] if len(order) > 19 else 0
+        cliente = order[-1] if len(order) > 20 else "DESCONOCIDO"  # c.nombre está al final del SELECT
         total = presupuesto - (descuento or 0)
 
         self.lbl_title.configure(text=f"ORDEN #{self.selected_order_id}")
@@ -268,13 +281,15 @@ class WorkshopFrame(ctk.CTkFrame):
         pendiente = max(0, total - abono)
         self.var_pending_display.set(f"RESTA POR PAGAR: ${self.format_money(pendiente)}")
 
-        # Cargar automáticamente costos de repuestos/servicios asociados a esta orden
+        # Cargar automáticamente costos desde NUEVO schema (orden_repuestos + ordenes.costo_envio)
         try:
+            # En nuevo schema: costo_total_repuestos y costo_envio están EN tabla ordenes
+            # NO necesitamos sumar de orden_repuestos, ya lo hace el trigger automáticamente
+            # Simplemente leemos los campos calculados
             query = """
-            SELECT COALESCE(SUM(CASE WHEN tipo_item = 'REPUESTO' THEN costo ELSE 0 END), 0) as costo_repuestos,
-                   COALESCE(SUM(CASE WHEN tipo_item = 'ENVIO' THEN costo ELSE 0 END), 0) as costo_envio
-            FROM detalles_orden
-            WHERE orden_id = ?
+            SELECT costo_total_repuestos, costo_envio
+            FROM ordenes
+            WHERE id = ?
             """
             result = self.logic.bd.OBTENER_UNO(query, (self.selected_order_id,))
             if result:
@@ -365,36 +380,37 @@ class WorkshopFrame(ctk.CTkFrame):
         if new_tech_id:
             self.logic.orders.update_order_tech(self.selected_order_id, new_tech_id)
         
-        # Guardar costos en detalles_orden para que se carguen automáticamente en POS
+        # CRITICA #3: Guardar costos DIRECTAMENTE en tabla ordenes (NO en detalles_orden - eliminada)
+        # Los triggers automáticos actualizarán costo_total_repuestos cuando se inserten repuestos individuales
         try:
-            print(f"DEBUG WORKSHOP: Intentando guardar - Orden ID: {self.selected_order_id}, Repuestos: {costo_repuesto}, Envío: {costo_envio}")
+            print(f"DEBUG WORKSHOP: Guardando costos en ordenes - Orden ID: {self.selected_order_id}, Repuestos: {costo_repuesto}, Envío: {costo_envio}")
             
-            # Eliminar detalles_orden anteriores para esta orden
-            self.logic.bd.EJECUTAR_CONSULTA("DELETE FROM detalles_orden WHERE orden_id = ?", (self.selected_order_id,))
-            print(f"DEBUG WORKSHOP: Eliminadas órdenes anteriores para orden {self.selected_order_id}")
+            # En nuevo schema: Actualizar campos de costo DIRECTAMENTE en tabla ordenes
+            # NO se usa detalles_orden (tabla eliminada en schema optimizado)
+            # costo_total_repuestos y costo_envio son campos directos en ordenes
+            self.logic.bd.EJECUTAR_CONSULTA(
+                """UPDATE ordenes SET 
+                   costo_total_servicios = ?,
+                   costo_envio = ?
+                   WHERE id = ?""",
+                (costo_repuesto, costo_envio, self.selected_order_id)
+            )
+            print(f"DEBUG WORKSHOP: Costos actualizados en tabla ordenes - Servicios: {costo_repuesto}, Envío: {costo_envio}")
             
-            # Insertar costo de repuestos si es > 0
-            if costo_repuesto > 0:
-                self.logic.bd.EJECUTAR_CONSULTA(
-                    "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
-                    (self.selected_order_id, 'REPUESTO', 'Costo de Repuestos', costo_repuesto, 1)
-                )
-                print(f"DEBUG WORKSHOP: Insertado REPUESTO - Orden: {self.selected_order_id}, Costo: {costo_repuesto}")
-            
-            # Insertar costo de envío si es > 0
-            if costo_envio > 0:
-                self.logic.bd.EJECUTAR_CONSULTA(
-                    "INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad) VALUES (?, ?, ?, ?, ?)",
-                    (self.selected_order_id, 'ENVIO', 'Costo de Envío', costo_envio, 1)
-                )
-                print(f"DEBUG WORKSHOP: Insertado ENVIO - Orden: {self.selected_order_id}, Costo: {costo_envio}")
+            # NOTA: Si necesitas agregar repuestos INDIVIDUALES (con repuesto_id), usa orden_repuestos:
+            # INSERT INTO orden_repuestos (orden_id, repuesto_id, cantidad, costo_unitario)
+            # El trigger tr_orden_repuestos_insert descontará stock automáticamente
+            # Por ahora, solo guardamos el costo TOTAL como "servicios generales"
             
             # Verificar qué se guardó
-            verificar = self.logic.bd.OBTENER_TODOS("SELECT orden_id, tipo_item, costo FROM detalles_orden WHERE orden_id = ?", (self.selected_order_id,))
-            print(f"DEBUG WORKSHOP: Verificación de guardado - Registros en detalles_orden: {verificar}")
+            verificar = self.logic.bd.OBTENER_UNO(
+                "SELECT costo_total_servicios, costo_envio FROM ordenes WHERE id = ?", 
+                (self.selected_order_id,)
+            )
+            print(f"DEBUG WORKSHOP: Verificación - Servicios: {verificar[0] if verificar else 0}, Envío: {verificar[1] if verificar else 0}")
             
         except Exception as e:
-            print(f"ERROR al guardar costos en detalles_orden: {e}")
+            print(f"ERROR al guardar costos en ordenes: {e}")
             import traceback
             traceback.print_exc()
         

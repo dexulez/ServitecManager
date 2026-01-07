@@ -1,0 +1,556 @@
+================================================================================
+                    PLAN DE MIGRACIÓN - BASE DE DATOS v2.0
+                              ServitecManager
+================================================================================
+
+OBJETIVO: Migrar de estructura de 21 tablas a estructura optimizada de 15 tablas
+FECHA DE IMPLEMENTACIÓN: Pendiente aprobación
+IMPACTO: Alto - Cambio de arquitectura de datos
+
+================================================================================
+                          FASE 0: PREPARACIÓN
+================================================================================
+
+1. BACKUP COMPLETO
+   ─────────────────
+   □ Crear backup de SERVITEC.DB actual
+   □ Exportar todos los datos a CSV
+   □ Verificar integridad del backup
+   
+   Comandos:
+   cp SERVITEC.DB SERVITEC.DB.backup
+   sqlite3 SERVITEC.DB ".mode csv" ".output backup_ordenes.csv" "SELECT * FROM ordenes;"
+   
+2. ANÁLISIS DE DATOS ACTUALES
+   ──────────────────────────
+   □ Contar registros en cada tabla
+   □ Identificar inconsistencias
+   □ Verificar integridad referencial
+   
+   Queries:
+   SELECT COUNT(*) FROM ordenes;
+   SELECT COUNT(*) FROM finanzas;
+   SELECT COUNT(*) FROM detalles_orden;
+   SELECT COUNT(*) FROM ventas;
+   SELECT COUNT(*) FROM detalle_ventas;
+   
+3. COMUNICAR A USUARIOS
+   ─────────────────────
+   □ Notificar que habrá downtime
+   □ Hacer backup manual de datos importantes
+   □ Preparar plan de rollback
+
+================================================================================
+                      FASE 1: CREAR NUEVA ESTRUCTURA
+================================================================================
+
+1. CREAR BD TEMPORAL CON NUEVO ESQUEMA
+   ────────────────────────────────────
+   □ Ejecutar database_schema_optimized.sql en BD nueva
+   □ Verificar que todas las tablas se crearon
+   □ Verificar que todos los índices están presentes
+   □ Verificar que todos los triggers están activos
+   
+   Comando:
+   sqlite3 SERVITEC_NEW.DB < database_schema_optimized.sql
+   
+2. VALIDAR ESTRUCTURA
+   ──────────────────
+   □ Ejecutar PRAGMA integrity_check
+   □ Verificar foreign keys están habilitadas
+   □ Verificar triggers están presentes
+   
+   Queries:
+   PRAGMA integrity_check;
+   SELECT name FROM sqlite_master WHERE type='trigger';
+   SELECT name FROM sqlite_master WHERE type='view';
+
+================================================================================
+                      FASE 2: MIGRACIÓN DE DATOS
+================================================================================
+
+ORDEN DE MIGRACIÓN CRÍTICO:
+1. Datos base (usuarios, clientes, proveedores)
+2. Catálogos (categorias, servicios, modelos)
+3. Inventario (repuestos, inventario)
+4. Órdenes (combinar ordenes + finanzas)
+5. Detalles de órdenes (orden_repuestos, orden_servicios)
+6. Transacciones (combinar de múltiples tablas)
+7. Ventas (ventas + venta_detalles)
+8. Caja (caja_sesiones + gastos)
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 1: MIGRAR USUARIOS (Sin cambios)
+──────────────────────────────────────
+
+INSERT INTO usuarios_new (id, nombre, password, rol, porcentaje_comision, activo, fecha_creacion)
+SELECT id, nombre, password, rol, porcentaje_comision, 1, CURRENT_TIMESTAMP FROM usuarios_old;
+
+Validación:
+SELECT COUNT(*) FROM usuarios_old;
+SELECT COUNT(*) FROM usuarios_new;
+-- Deben ser iguales
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 2: MIGRAR CLIENTES (Sin cambios)
+──────────────────────────────────────
+
+INSERT INTO clientes_new (id, rut, nombre, telefono, email, fecha_creacion)
+SELECT id, rut, nombre, telefono, email, CURRENT_TIMESTAMP FROM clientes_old;
+
+Validación:
+SELECT COUNT(*) FROM clientes_old;
+SELECT COUNT(*) FROM clientes_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 3: MIGRAR PROVEEDORES (Sin cambios)
+──────────────────────────────────────────
+
+INSERT INTO proveedores_new (id, nombre, telefono, email, direccion, saldo_pendiente, fecha_creacion)
+SELECT id, nombre, telefono, email, direccion, saldo_pendiente, CURRENT_TIMESTAMP FROM proveedores_old;
+
+Validación:
+SELECT COUNT(*) FROM proveedores_old;
+SELECT COUNT(*) FROM proveedores_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 4: MIGRAR CATEGORIAS (Sin cambios)
+────────────────────────────────────────
+
+INSERT INTO categorias_new (id, nombre, tipo, fecha_creacion)
+SELECT id, nombre, tipo, CURRENT_TIMESTAMP FROM categorias_old;
+
+Validación:
+SELECT COUNT(*) FROM categorias_old;
+SELECT COUNT(*) FROM categorias_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 5: MIGRAR SERVICIOS PREDEFINIDOS (Sin cambios)
+──────────────────────────────────────────────────────
+
+INSERT INTO servicios_predefinidos_new (id, nombre_servicio, categoria, costo_mano_obra, fecha_creacion)
+SELECT id, nombre_servicio, categoria, costo_mano_obra, CURRENT_TIMESTAMP FROM servicios_predefinidos_old;
+
+Validación:
+SELECT COUNT(*) FROM servicios_predefinidos_old;
+SELECT COUNT(*) FROM servicios_predefinidos_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 6: MIGRAR REPUESTOS (Sin cambios en estructura)
+──────────────────────────────────────────────────────
+
+INSERT INTO repuestos_new (id, nombre, categoria, costo, precio_sugerido, stock, proveedor_id, fecha_creacion)
+SELECT id, nombre, categoria, costo, precio_sugerido, stock, proveedor_id, CURRENT_TIMESTAMP FROM repuestos_old;
+
+Validación:
+SELECT COUNT(*) FROM repuestos_old;
+SELECT COUNT(*) FROM repuestos_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 7: MIGRAR INVENTARIO (Sin cambios en estructura)
+──────────────────────────────────────────────────────
+
+INSERT INTO inventario_new (id, nombre, categoria, costo, precio, stock, proveedor_id, fecha_creacion)
+SELECT id, nombre, categoria, costo, precio, stock, proveedor_id, CURRENT_TIMESTAMP FROM inventario_old;
+
+Validación:
+SELECT COUNT(*) FROM inventario_old;
+SELECT COUNT(*) FROM inventario_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 8: MIGRAR ÓRDENES (COMBINA ordenes + finanzas)
+─────────────────────────────────────────────────
+
+CRITICAL: Las órdenes en la nueva estructura contienen campos de finanzas
+
+INSERT INTO ordenes_new (
+    id, cliente_id, tecnico_id, fecha_entrada, fecha_entrega, equipo, marca, modelo, 
+    serie, observacion, accesorios, riesgoso, estado,
+    presupuesto_inicial, costo_total_repuestos, costo_total_servicios, costo_envio,
+    descuento, total_a_cobrar, abono, saldo_pendiente, utilidad_bruta, comision_tecnico,
+    pago_efectivo, pago_transferencia, pago_debito, pago_credito,
+    fecha_cierre, usuario_cierre_id
+)
+SELECT 
+    o.id, 
+    o.cliente_id, 
+    o.tecnico_id, 
+    o.fecha,              -- ← fecha_entrada
+    o.fecha_entrega, 
+    o.equipo, 
+    o.marca, 
+    o.modelo, 
+    o.serie, 
+    o.observacion, 
+    o.accesorios, 
+    o.riesgoso, 
+    CASE 
+        WHEN UPPER(o.estado) = 'PENDIENTE' THEN 'Pendiente'
+        WHEN UPPER(o.estado) = 'EN PROCESO' THEN 'En Proceso'
+        WHEN UPPER(o.estado) = 'REPARADO' THEN 'Reparado'
+        WHEN UPPER(o.estado) = 'ENTREGADO' THEN 'Entregado'
+        ELSE 'Pendiente'
+    END,
+    o.presupuesto,        -- ← presupuesto_inicial
+    COALESCE(f.costo_repuesto, 0),
+    COALESCE(f.costo_envio, 0),  -- ← Nota: NO tenemos costo_servicios en BD vieja
+    0,                    -- costo_total_servicios (no existía antes)
+    o.descuento,
+    o.presupuesto - COALESCE(o.descuento, 0),  -- total_a_cobrar
+    COALESCE(o.abono, 0),
+    (o.presupuesto - COALESCE(o.descuento, 0)) - COALESCE(o.abono, 0),  -- saldo_pendiente
+    f.utilidad_real,
+    COALESCE(f.monto_comision_tecnico, 0),
+    COALESCE(f.monto_efectivo, 0),
+    COALESCE(f.monto_transferencia, 0),
+    COALESCE(f.monto_debito, 0),
+    COALESCE(f.monto_credito, 0),
+    f.fecha_cierre,
+    NULL  -- usuario_cierre_id (no registrado antes)
+FROM ordenes_old o
+LEFT JOIN finanzas_old f ON o.id = f.orden_id;
+
+Validación:
+SELECT COUNT(*) FROM ordenes_old;
+SELECT COUNT(*) FROM ordenes_new;
+-- Deben ser iguales
+
+Auditoría detallada:
+SELECT 
+    o_old.id,
+    o_old.presupuesto as presupuesto_old,
+    o_new.presupuesto_inicial as presupuesto_new,
+    o_old.abono as abono_old,
+    o_new.abono as abono_new,
+    o_old.descuento as descuento_old,
+    o_new.descuento as descuento_new
+FROM ordenes_old o_old
+JOIN ordenes_new o_new ON o_old.id = o_new.id
+WHERE o_old.presupuesto != o_new.presupuesto_inicial
+   OR o_old.abono != o_new.abono
+   OR o_old.descuento != o_new.descuento;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 9: MIGRAR ORDEN_REPUESTOS (Desde detalles_orden)
+──────────────────────────────────────────────────────
+
+INSERT INTO orden_repuestos_new (
+    id, orden_id, repuesto_id, cantidad, costo_unitario, precio_cobrado, utilizado, fecha_agregado
+)
+SELECT 
+    id, 
+    orden_id, 
+    descripcion,  -- ← PROBLEMA: descripcion no es repuesto_id
+    1,            -- cantidad (asumir 1 si no está especificado)
+    costo,        -- costo_unitario
+    costo,        -- precio_cobrado
+    1,            -- utilizado (1 si está en detalles_orden)
+    fecha_creacion
+FROM detalles_orden_old
+WHERE tipo_item = 'REPUESTO';
+
+⚠️ NOTA CRÍTICA: 
+La BD vieja NO tiene referencia directa a repuesto_id en detalles_orden.
+Hay dos opciones:
+  A) Buscar repuesto por nombre en columna descripcion
+  B) Marcar como órfanos y procesarlos manualmente
+
+Opción A (Si el nombre está en descripcion):
+INSERT INTO orden_repuestos_new (...)
+SELECT 
+    id, 
+    orden_id, 
+    r.id as repuesto_id,  -- ← Buscar por nombre
+    1, costo, costo, 1, fecha_creacion
+FROM detalles_orden_old do
+LEFT JOIN repuestos r ON INSTR(do.descripcion, r.nombre) > 0
+WHERE tipo_item = 'REPUESTO' AND r.id IS NOT NULL;
+
+Auditoría:
+SELECT COUNT(*) FROM detalles_orden_old WHERE tipo_item = 'REPUESTO';
+SELECT COUNT(*) FROM orden_repuestos_new;
+-- Pueden no ser iguales si hay descripción ambigua
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 10: MIGRAR ORDEN_SERVICIOS (Desde detalles_orden)
+────────────────────────────────────────────────────────
+
+INSERT INTO orden_servicios_new (
+    id, orden_id, servicio_id, descripcion_custom, costo, fecha_agregado
+)
+SELECT 
+    id, 
+    orden_id, 
+    NULL,  -- servicio_id (no referenciado antes)
+    descripcion,
+    costo,
+    fecha_creacion
+FROM detalles_orden_old
+WHERE tipo_item = 'SERVICIO';
+
+Auditoría:
+SELECT COUNT(*) FROM detalles_orden_old WHERE tipo_item = 'SERVICIO';
+SELECT COUNT(*) FROM orden_servicios_new;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 11: CREAR TRANSACCIONES (Combina múltiples fuentes)
+──────────────────────────────────────────────────────────
+
+A) TRANSACCIONES DE COBRO DE REPARACIONES (desde finanzas)
+
+INSERT INTO transacciones_new (
+    fecha, tipo, referencia_id, referencia_tipo, monto_total, descuento, monto_final,
+    monto_efectivo, monto_transferencia, monto_debito, monto_credito,
+    descripcion, sesion_caja_id, usuario_id
+)
+SELECT 
+    COALESCE(f.fecha_cierre, o.fecha_entrada),
+    'COBRO_REPARACION',
+    f.orden_id,
+    'orden',
+    f.total_cobrado,
+    f.descuento,
+    f.total_cobrado - COALESCE(f.descuento, 0),
+    f.monto_efectivo,
+    f.monto_transferencia,
+    f.monto_debito,
+    f.monto_credito,
+    'Cobro de reparación - Orden #' || f.orden_id,
+    1,  -- ← sesion_caja_id (PROBLEMA: no sabemos cuál sesión)
+    1   -- ← usuario_id (PROBLEMA: no sabemos quién cobró)
+FROM finanzas_old f
+JOIN ordenes_old o ON f.orden_id = o.id;
+
+⚠️ NOTAS CRÍTICAS:
+- sesion_caja_id: No existe registro de sesión en BD vieja
+  Solución: Crear sesión ficticia o dejar como NULL para revisión manual
+- usuario_id: No existe registro de quién cobró
+  Solución: Usar tecnico_id o dejar como NULL
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 12: MIGRAR VENTAS Y VENTA_DETALLES
+─────────────────────────────────────────
+
+INSERT INTO ventas_new (
+    id, fecha, cliente_id, usuario_id, orden_id, total_productos, descuento, total_final, transaccion_id
+)
+SELECT 
+    v.id,
+    v.fecha,
+    v.cliente_id,
+    v.usuario_id,
+    dv.orden_id,
+    v.total,
+    v.descuento,
+    v.total - COALESCE(v.descuento, 0),
+    NULL  -- transaccion_id (se asignará después)
+FROM ventas_old v
+LEFT JOIN detalle_ventas_old dv ON v.id = dv.venta_id;
+
+INSERT INTO venta_detalles_new (
+    id, venta_id, producto_id, cantidad, precio_unitario, subtotal
+)
+SELECT 
+    id, venta_id, producto_id, cantidad, precio_unitario, subtotal
+FROM detalle_ventas_old;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 13: MIGRAR CAJA_SESIONES Y GASTOS
+─────────────────────────────────────────
+
+INSERT INTO caja_sesiones_new (
+    id, usuario_id, fecha_apertura, fecha_cierre, monto_inicial, monto_final_sistema, monto_final_real, estado
+)
+SELECT 
+    id, usuario_id, fecha_apertura, fecha_cierre, monto_inicial, monto_final_sistema, monto_final_real,
+    CASE WHEN fecha_cierre IS NOT NULL THEN 'CERRADO' ELSE 'ABIERTO' END
+FROM caja_sesiones_old;
+
+INSERT INTO gastos_new (
+    id, sesion_id, descripcion, monto, fecha, transaccion_id
+)
+SELECT 
+    id, sesion_id, descripcion, monto, fecha, NULL  -- transaccion_id (se asignará después)
+FROM gastos_old;
+
+────────────────────────────────────────────────────────────────────────────
+
+PASO 14: MIGRAR MODELOS Y MARCAS (Si existen)
+──────────────────────────────────────────────
+
+INSERT INTO modelos_new (
+    id, tipo_dispositivo, marca, modelo
+)
+SELECT 
+    id, tipo_dispositivo, marca, modelo
+FROM modelos_old;
+
+INSERT INTO marcas_personalizadas_new (
+    id, nombre, fecha_creacion
+)
+SELECT 
+    id, nombre, fecha_creacion
+FROM marcas_personalizadas_old;
+
+================================================================================
+                         FASE 3: VALIDACIÓN
+================================================================================
+
+VALIDAR INTEGRIDAD REFERENCIAL:
+────────────────────────────────
+
+SELECT COUNT(DISTINCT o.cliente_id)
+FROM ordenes_new o
+WHERE o.cliente_id NOT IN (SELECT id FROM clientes_new);
+-- Debe retornar 0 (sin órdenes huérfanas)
+
+SELECT COUNT(DISTINCT o.tecnico_id)
+FROM ordenes_new o
+WHERE o.tecnico_id NOT NULL AND o.tecnico_id NOT IN (SELECT id FROM usuarios_new);
+-- Debe retornar 0
+
+SELECT COUNT(DISTINCT or.repuesto_id)
+FROM orden_repuestos_new or
+WHERE or.repuesto_id NOT IN (SELECT id FROM repuestos_new);
+-- Puede retornar > 0 si hay inconsistencias en migración
+
+
+VALIDAR DATOS FINANCIEROS:
+───────────────────────────
+
+SELECT 
+    COUNT(*) as total_ordenes,
+    SUM(total_a_cobrar) as ingresos_esperados,
+    SUM(abono) as pagos_realizados,
+    SUM(saldo_pendiente) as saldo_pendiente_total
+FROM ordenes_new;
+
+Comparar con estructura vieja:
+SELECT 
+    COUNT(*) as total_ordenes,
+    SUM(presupuesto) as ingresos_esperados,
+    SUM(abono) as pagos_realizados,
+    SUM(presupuesto - descuento - abono) as saldo_pendiente_total
+FROM ordenes_old;
+-- Los totales deben coincidir
+
+
+VALIDAR STOCK:
+───────────────
+
+SELECT COUNT(*) FROM repuestos_new WHERE stock < 0;
+-- Debe retornar 0 (no puede haber stock negativo)
+
+SELECT COUNT(*) FROM inventario_new WHERE stock < 0;
+-- Debe retornar 0
+
+
+VALIDAR TRANSACCIONES:
+──────────────────────
+
+SELECT 
+    COUNT(*) as total_transacciones,
+    SUM(monto_final) as total_movimientos,
+    SUM(CASE WHEN tipo = 'COBRO_REPARACION' THEN monto_final ELSE 0 END) as cobros_reparacion,
+    SUM(CASE WHEN tipo = 'VENTA_PRODUCTO' THEN monto_final ELSE 0 END) as ventas_productos
+FROM transacciones_new;
+
+================================================================================
+                    FASE 4: CAMBIO A NUEVA BD
+================================================================================
+
+1. RENOMBRAR BASES DE DATOS
+   ─────────────────────────
+   mv SERVITEC.DB SERVITEC.DB.old
+   mv SERVITEC_NEW.DB SERVITEC.DB
+
+2. ACTUALIZAR CÓDIGO PYTHON
+   ───────────────────────
+   - Actualizar database.py para nuevas tablas
+   - Actualizar queries en todos los módulos
+   - Actualizar lógica de finanzas
+   - Usar transacciones para movimientos de dinero
+
+3. PROBAR MÓDULO POR MÓDULO
+   ────────────────────────
+   □ Dashboard - Ver órdenes recientes
+   □ Recepción - Crear nueva orden
+   □ Taller - Agregar repuestos/servicios
+   □ POS - Realizar venta
+   □ Caja - Abrir/cerrar sesión
+   □ Reportes - Verificar resúmenes
+
+4. REALIZAR TEST COMPLETOS
+   ────────────────────────
+   □ Crear orden desde cero
+   □ Agregar repuestos
+   □ Cobrar en POS
+   □ Verificar stock actualizado
+   □ Cierre de caja
+   □ Generación de reportes
+
+================================================================================
+                      FASE 5: ROLLBACK (Si falla)
+================================================================================
+
+1. SI ALGO FALLA DURANTE MIGRACIÓN:
+   ──────────────────────────────────
+   
+   rm SERVITEC.DB
+   mv SERVITEC.DB.old SERVITEC.DB
+   git checkout HEAD -- servitec_manager/database.py
+   python servitec_manager/main.py
+
+2. ANÁLISIS POST-ROLLBACK:
+   ───────────────────────
+   - Identificar qué falló
+   - Corregir el script de migración
+   - Intentar de nuevo en ambiente de prueba
+
+================================================================================
+                    ESTIMACIÓN DE TIEMPO
+================================================================================
+
+Preparación (Fase 0):             1-2 horas
+Crear estructura (Fase 1):        30 minutos
+Migración de datos (Fase 2):      2-3 horas
+Validación (Fase 3):              2 horas
+Cambio a BD nueva (Fase 4):       1 hora
+Testing completo (Fase 4):        2-3 horas
+Buffer para problemas:            2 horas
+
+TOTAL ESTIMADO:                   11-15 horas
+
+RECOMENDACIÓN:
+Ejecutar la migración en fin de semana o momento de bajo uso
+Tener 2 personas: 1 ejecutando, 1 validando cada paso
+
+================================================================================
+                      PRÓXIMOS PASOS
+================================================================================
+
+1. □ Revisar este plan con el usuario
+2. □ Hacer backup completo antes de empezar
+3. □ Preparar ambiente de prueba
+4. □ Crear script Python automatizado para migración
+5. □ Ejecutar migración en ambiente de prueba
+6. □ Validar todos los datos
+7. □ Obtener aprobación del usuario
+8. □ Ejecutar en producción
+9. □ Monitorear primeras 24 horas
+10. □ Archivo viejo: mantener por 30 días como backup
+
+================================================================================

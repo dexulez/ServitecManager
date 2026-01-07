@@ -106,7 +106,11 @@ class AdminFrame(ctk.CTkFrame):
         users = self.logic.get_all_users()
         
         for u in users:
-            uid, name, _, rol, com = u
+            # Usuarios: (id, nombre, password, rol, porcentaje_comision, activo, fecha_creacion)
+            uid = u[0]
+            name = u[1]
+            rol = u[3]
+            com = u[4] if len(u) > 4 else 50
             card = ctk.CTkFrame(self.scroll_users, **Theme.get_card_style())
             card.pack(fill="x", pady=5, padx=5)
             

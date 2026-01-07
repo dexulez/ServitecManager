@@ -134,9 +134,9 @@ class PDFGeneratorV2:
             print(f"[PDF GENERATOR] Índices 0-16 (ordenes - incluye condicion en [10]):")
             for i in range(min(17, len(orden_data))):
                 print(f"  [{i}]: {orden_data[i]}")
-            if len(orden_data) > 17:
-                print(f"[PDF GENERATOR] Índices 17-20 (cliente):")
-                for i in range(17, min(21, len(orden_data))):
+            if len(orden_data) > 30:
+                print(f"[PDF GENERATOR] Índices 30-33 (cliente desde JOIN):")
+                for i in range(30, min(34, len(orden_data))):
                     print(f"  [{i}]: {orden_data[i]}")
             print(f"{'='*80}\n")
             
@@ -399,7 +399,7 @@ class PDFGeneratorV2:
             subtotal = total_a_cobrar / 1.19  # Sin IVA
             iva = total_a_cobrar - subtotal
             saldo = abs(total_a_cobrar - abono)  # Valor absoluto para evitar negativos
-            print(f"  TOTAL: ${total:,.2f}")
+            print(f"  TOTAL A COBRAR: ${total_a_cobrar:,.2f}")
             print(f"  SALDO: ${saldo:,.2f}")
         
             # Dibujar valores DENTRO del borde (bajar texto 8mm total)

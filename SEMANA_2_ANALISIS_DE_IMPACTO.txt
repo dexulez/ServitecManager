@@ -1,0 +1,586 @@
+═══════════════════════════════════════════════════════════════════════════════
+                    SEMANA 2 - ANÁLISIS DE IMPACTO
+                      CAMBIOS DE PRIORIDAD ALTA
+═══════════════════════════════════════════════════════════════════════════════
+
+FECHA: 18 de diciembre de 2025
+ARCHIVOS ANALIZADOS: 2 (prediccion_logic.py, cash.py)
+COLUMNAS AFECTADAS: 3 (fecha→fecha_entrada, rut→cedula, presupuesto→presupuesto_inicial)
+REFERENCIAS ENCONTRADAS: 12 ubicaciones
+
+═══════════════════════════════════════════════════════════════════════════════
+                            RESUMEN EJECUTIVO
+═══════════════════════════════════════════════════════════════════════════════
+
+CAMBIO #1: fecha → fecha_entrada
+   • Archivo: prediccion_logic.py
+   • Ubicaciones: 5 queries SQL
+   • Impacto: ALTO - Afecta análisis de tendencias y predicciones
+
+CAMBIO #2: rut → cedula
+   • Archivos analizados: prediccion_logic.py, cash.py
+   • Referencias encontradas: 0 (ninguna referencia directa a "rut")
+   • Impacto: NULO - No requiere cambios en estos archivos
+
+CAMBIO #3: presupuesto → presupuesto_inicial
+   • Archivo: prediccion_logic.py
+   • Ubicaciones: 5 queries SQL
+   • Impacto: ALTO - Afecta cálculos de ventas y predicciones
+
+CAMBIO #4 (CRITICO ENCONTRADO): Tabla finanzas en cash.py
+   • Archivo: cash.py
+   • Ubicaciones: 2 queries SQL (líneas 119-124, 299)
+   • Impacto: BLOQUEANTE - La tabla finanzas fue eliminada en SEMANA 1
+   • Estado: REQUIERE CORRECCIÓN INMEDIATA
+
+═══════════════════════════════════════════════════════════════════════════════
+                        DETALLE POR ARCHIVO
+═══════════════════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ARCHIVO: servitec_manager/prediccion_logic.py                              │
+│ ESTADO: REQUIERE MODIFICACIÓN (10 cambios)                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+FUNCIÓN: ANALIZAR_TENDENCIA_VENTAS()
+─────────────────────────────────────────────────────────────────────────────
+UBICACIÓN: Línea 29
+CÓDIGO ACTUAL:
+    "SELECT DATE(fecha), SUM(presupuesto) FROM ordenes 
+     WHERE DATE(fecha) >= ? GROUP BY DATE(fecha) ORDER BY fecha ASC"
+
+CÓDIGO CORREGIDO:
+    "SELECT DATE(fecha_entrada), SUM(presupuesto_inicial) FROM ordenes 
+     WHERE DATE(fecha_entrada) >= ? GROUP BY DATE(fecha_entrada) ORDER BY fecha_entrada ASC"
+
+IMPACTO:
+    • Columna fecha: Usada en DATE(), WHERE, GROUP BY, ORDER BY
+    • Columna presupuesto: Usada en SUM() para calcular tendencias
+    • Función afectada: Análisis de ventas diarias
+    • Dashboard dependiente: Gráficos de tendencias
+
+CRITICIDAD: ⚠️ ALTA
+    - Sin este cambio, las consultas fallarán con error "no such column: fecha"
+    - Afecta predicciones de ventas futuras
+
+
+FUNCIÓN: PREDECIR_VENTAS_PRÓXIMAS_SEMANAS()
+─────────────────────────────────────────────────────────────────────────────
+UBICACIÓN: Líneas 104-106
+CÓDIGO ACTUAL:
+    SELECT STRFTIME('%Y-W%W', fecha) as semana, SUM(presupuesto) 
+    FROM ordenes 
+    WHERE DATE(fecha) >= ? 
+    GROUP BY semana 
+    ORDER BY semana ASC
+
+CÓDIGO CORREGIDO:
+    SELECT STRFTIME('%Y-W%W', fecha_entrada) as semana, SUM(presupuesto_inicial) 
+    FROM ordenes 
+    WHERE DATE(fecha_entrada) >= ? 
+    GROUP BY semana 
+    ORDER BY semana ASC
+
+IMPACTO:
+    • Columna fecha: Usada en STRFTIME() para agrupar por semana
+    • Columna presupuesto: Usada en SUM() para predicciones semanales
+    • Función afectada: Predicciones de próximas 4 semanas
+    • Rango temporal: Analiza últimas 12 semanas
+
+CRITICIDAD: ⚠️ ALTA
+    - Predicciones de ventas futuras dependen de este query
+    - Dashboard de gerencia usa estas predicciones
+
+
+FUNCIÓN: PREDECIR_VENTAS_PRÓXIMOS_MESES()
+─────────────────────────────────────────────────────────────────────────────
+UBICACIÓN: Líneas 158-162
+CÓDIGO ACTUAL:
+    SELECT STRFTIME('%Y-%m', fecha) as mes, SUM(presupuesto) 
+    FROM ordenes 
+    WHERE DATE(fecha) >= ? 
+    GROUP BY mes 
+    ORDER BY mes ASC
+
+CÓDIGO CORREGIDO:
+    SELECT STRFTIME('%Y-%m', fecha_entrada) as mes, SUM(presupuesto_inicial) 
+    FROM ordenes 
+    WHERE DATE(fecha_entrada) >= ? 
+    GROUP BY mes 
+    ORDER BY mes ASC
+
+IMPACTO:
+    • Columna fecha: Usada en STRFTIME() para agrupar por mes
+    • Columna presupuesto: Usada en SUM() para predicciones mensuales
+    • Función afectada: Predicciones de próximos 6 meses
+    • Rango temporal: Analiza últimos 12 meses (365 días)
+
+CRITICIDAD: ⚠️ ALTA
+    - Predicciones de largo plazo dependen de este query
+    - Reportes mensuales usan estos datos
+
+
+FUNCIÓN: ANALIZAR_ESTACIONALIDAD()
+─────────────────────────────────────────────────────────────────────────────
+UBICACIÓN: Líneas 204-207
+CÓDIGO ACTUAL:
+    SELECT STRFTIME('%m', fecha) as mes, SUM(presupuesto) as total, COUNT(*) as cantidad
+    FROM ordenes
+    GROUP BY mes
+    ORDER BY mes ASC
+
+CÓDIGO CORREGIDO:
+    SELECT STRFTIME('%m', fecha_entrada) as mes, SUM(presupuesto_inicial) as total, COUNT(*) as cantidad
+    FROM ordenes
+    GROUP BY mes
+    ORDER BY mes ASC
+
+IMPACTO:
+    • Columna fecha: Usada en STRFTIME() para extraer mes
+    • Columna presupuesto: Usada en SUM() para calcular patrones estacionales
+    • Función afectada: Detección de meses pico y meses bajos
+    • Análisis: Patrones de todos los años combinados
+
+CRITICIDAD: ⚠️ MEDIA
+    - Análisis estacional no es crítico para operación diaria
+    - Sí importante para planificación estratégica
+
+
+FUNCIÓN: CALCULAR_SCORE_SALUD()
+─────────────────────────────────────────────────────────────────────────────
+UBICACIÓN: Línea 270
+CÓDIGO ACTUAL:
+    "SELECT SUM(presupuesto), SUM(abono) FROM ordenes WHERE DATE(fecha) >= ?"
+
+CÓDIGO CORREGIDO:
+    "SELECT SUM(presupuesto_inicial), SUM(abono) FROM ordenes WHERE DATE(fecha_entrada) >= ?"
+
+IMPACTO:
+    • Columna fecha: Usada en WHERE para filtrar mes anterior
+    • Columna presupuesto: Usada en SUM() para calcular tasa de cobranza
+    • Función afectada: Score de salud empresarial (0-100)
+    • Indicador: Tasa de cobranza (abono/presupuesto * 100)
+
+CRITICIDAD: ⚠️ MEDIA
+    - Score de salud no bloquea operaciones
+    - Sí importante para dashboard gerencial
+
+
+RESUMEN prediccion_logic.py:
+─────────────────────────────────────────────────────────────────────────────
+CAMBIOS REQUERIDOS: 10 ocurrencias (5 queries SQL)
+    • 5x "fecha" → "fecha_entrada"
+    • 5x "presupuesto" → "presupuesto_inicial"
+
+FUNCIONES AFECTADAS: 5
+    1. ANALIZAR_TENDENCIA_VENTAS() - Análisis diario
+    2. PREDECIR_VENTAS_PRÓXIMAS_SEMANAS() - Predicción semanal
+    3. PREDECIR_VENTAS_PRÓXIMOS_MESES() - Predicción mensual
+    4. ANALIZAR_ESTACIONALIDAD() - Patrones estacionales
+    5. CALCULAR_SCORE_SALUD() - Indicador empresarial
+
+LÍNEAS DE CÓDIGO AFECTADAS: 5 líneas (queries SQL multi-línea)
+
+COMPATIBILIDAD: ✅ NO HAY BREAKING CHANGES
+    • Todas las funciones siguen devolviendo el mismo formato de datos
+    • La API pública no cambia (nombres de funciones y parámetros igual)
+    • Los dashboards no requieren actualización (solo cambio interno de queries)
+
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ARCHIVO: servitec_manager/ui/cash.py                                       │
+│ ESTADO: REQUIERE CORRECCIÓN CRÍTICA (2 queries con tabla finanzas)         │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+⚠️ PROBLEMA CRÍTICO ENCONTRADO: Referencias a tabla finanzas (eliminada en SEMANA 1)
+
+UBICACIÓN #1: Líneas 119-124
+─────────────────────────────────────────────────────────────────────────────
+FUNCIÓN: display_cash_dashboard() - Mostrar servicios cobrados del día
+
+CÓDIGO ACTUAL:
+    servicios_query = """SELECT o.id, o.equipo, o.modelo, f.total_cobrado, f.fecha_cierre, c.nombre
+                         FROM ordenes o
+                         JOIN finanzas f ON o.id = f.orden_id
+                         JOIN clientes c ON o.cliente_id = c.id
+                         WHERE f.fecha_cierre >= ? 
+                         ORDER BY f.fecha_cierre DESC"""
+
+PROBLEMA:
+    ❌ La tabla "finanzas" fue eliminada en SEMANA 1
+    ❌ Los campos total_cobrado y fecha_cierre ya no existen en finanzas
+    ❌ Estos datos ahora están consolidados en la tabla ordenes
+
+CÓDIGO CORREGIDO:
+    servicios_query = """SELECT o.id, o.equipo, o.modelo, o.total_a_cobrar, o.fecha_cierre, c.nombre
+                         FROM ordenes o
+                         JOIN clientes c ON o.cliente_id = c.id
+                         WHERE o.fecha_cierre >= ? 
+                         ORDER BY o.fecha_cierre DESC"""
+
+CAMBIOS:
+    • ❌ Eliminado: JOIN finanzas f
+    • ✅ Cambiado: f.total_cobrado → o.total_a_cobrar (campo consolidado en ordenes)
+    • ✅ Cambiado: f.fecha_cierre → o.fecha_cierre (campo consolidado en ordenes)
+    • ✅ Ajustado: WHERE y ORDER BY ahora usan o.fecha_cierre
+
+IMPACTO:
+    • UI afectada: Dashboard de caja
+    • Funcionalidad: Mostrar órdenes cobradas en el turno actual
+    • Criticidad: ⚠️ BLOQUEANTE - La query actual fallará con error "no such table: finanzas"
+
+
+UBICACIÓN #2: Línea 299
+─────────────────────────────────────────────────────────────────────────────
+FUNCIÓN: display_cash_dashboard() - Generar reporte de cierre de caja
+
+CÓDIGO ACTUAL:
+    res_t = self.logic.bd.OBTENER_UNO(
+        "SELECT SUM(monto_efectivo), SUM(monto_transferencia), SUM(monto_debito), SUM(monto_credito) 
+         FROM finanzas 
+         WHERE fecha_cierre >= ? AND fecha_cierre <= ?", 
+        (f_inicio, f_fin)
+    )
+
+PROBLEMA:
+    ❌ La tabla "finanzas" fue eliminada en SEMANA 1
+    ❌ Los campos monto_efectivo, monto_transferencia, monto_debito, monto_credito ya no existen en finanzas
+    ❌ Estos datos ahora están en la tabla ordenes con nombres diferentes
+
+CÓDIGO CORREGIDO:
+    res_t = self.logic.bd.OBTENER_UNO(
+        "SELECT SUM(pago_efectivo), SUM(pago_transferencia), SUM(pago_debito), SUM(pago_credito) 
+         FROM ordenes 
+         WHERE fecha_cierre >= ? AND fecha_cierre <= ?", 
+        (f_inicio, f_fin)
+    )
+
+CAMBIOS:
+    • ❌ Eliminado: FROM finanzas
+    • ✅ Cambiado: FROM ordenes
+    • ✅ Renombrado: monto_efectivo → pago_efectivo
+    • ✅ Renombrado: monto_transferencia → pago_transferencia
+    • ✅ Renombrado: monto_debito → pago_debito
+    • ✅ Renombrado: monto_credito → pago_credito
+    • ✅ Mantenido: fecha_cierre (existe en ordenes)
+
+IMPACTO:
+    • UI afectada: Reporte de cierre de caja
+    • Funcionalidad: Calcular totales de pagos por método
+    • Criticidad: ⚠️ BLOQUEANTE - La query actual fallará con error "no such table: finanzas"
+
+
+ANÁLISIS: Uso de "rut" y "presupuesto" en cash.py
+─────────────────────────────────────────────────────────────────────────────
+RESULTADO: ✅ NO SE ENCONTRARON REFERENCIAS
+
+El archivo cash.py NO contiene referencias a:
+    • Columna "rut" - No hay búsquedas por RUT en módulo de caja
+    • Columna "presupuesto" - No hay referencias directas a presupuesto
+
+CONCLUSIÓN: No se requieren cambios de renombre en cash.py (solo corrección de finanzas)
+
+
+RESUMEN cash.py:
+─────────────────────────────────────────────────────────────────────────────
+CAMBIOS REQUERIDOS: 2 queries SQL (CRÍTICOS - tabla finanzas eliminada)
+
+Query #1: Línea 119-124
+    • Cambiar: JOIN finanzas → eliminar
+    • Cambiar: f.total_cobrado → o.total_a_cobrar
+    • Cambiar: f.fecha_cierre → o.fecha_cierre
+
+Query #2: Línea 299
+    • Cambiar: FROM finanzas → FROM ordenes
+    • Cambiar: monto_* → pago_* (4 campos)
+
+CRITICIDAD: ⚠️⚠️⚠️ MÁXIMA PRIORIDAD
+    • Estos queries bloquean la funcionalidad de caja
+    • Usuario no podrá ver servicios cobrados ni generar reportes de cierre
+    • Error: "no such table: finanzas"
+
+COMPATIBILIDAD: ✅ CAMBIOS TRANSPARENTES
+    • La UI sigue mostrando la misma información
+    • Los totales se calculan igual (solo cambia la fuente de datos)
+    • No requiere cambios en la interfaz gráfica
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                    ANÁLISIS DE DEPENDENCIAS
+═══════════════════════════════════════════════════════════════════════════════
+
+MÓDULOS QUE CONSUMEN prediccion_logic.py:
+─────────────────────────────────────────────────────────────────────────────
+1. Dashboard principal (probablemente en ui/dashboard.py)
+2. Reportes avanzados (reportes_avanzados_logic.py)
+3. Módulo de análisis gerencial
+
+IMPACTO: ✅ NINGUNO - La API pública no cambia
+    • Las funciones siguen devolviendo el mismo formato de respuesta
+    • Los dashboards consumen datos igual (keys de diccionarios no cambian)
+    • Solo cambian los queries internos de SQL
+
+MÓDULOS QUE CONSUMEN cash.py:
+─────────────────────────────────────────────────────────────────────────────
+1. Interfaz principal de aplicación (app.py)
+2. Sistema de autenticación (login.py)
+
+IMPACTO: ✅ NINGUNO - La UI no cambia
+    • Los widgets de interfaz siguen igual
+    • Los reportes generados tienen mismo formato
+    • Solo cambia la fuente de datos interna
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        MATRIZ DE RIESGO
+═══════════════════════════════════════════════════════════════════════════════
+
+┌────────────────────────┬──────────┬────────────┬─────────────────────────┐
+│ Cambio                 │ Archivo  │ Criticidad │ Tipo de Riesgo          │
+├────────────────────────┼──────────┼────────────┼─────────────────────────┤
+│ fecha → fecha_entrada  │ pred_log │ ALTA       │ Queries fallan          │
+│ presup → presup_inicial│ pred_log │ ALTA       │ Queries fallan          │
+│ rut → cedula           │ -        │ NULA       │ No hay referencias      │
+│ finanzas → ordenes     │ cash     │ CRÍTICA    │ Tabla no existe         │
+└────────────────────────┴──────────┴────────────┴─────────────────────────┘
+
+PRIORIDAD DE APLICACIÓN:
+1. ⚠️⚠️⚠️ cash.py - URGENTE (tabla finanzas bloqueante)
+2. ⚠️⚠️ prediccion_logic.py - ALTA (queries fallarán)
+3. ✅ No se requieren cambios adicionales
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                    PLAN DE IMPLEMENTACIÓN
+═══════════════════════════════════════════════════════════════════════════════
+
+PASO 1: Aplicar correcciones en prediccion_logic.py
+─────────────────────────────────────────────────────────────────────────────
+Archivos: 1
+Líneas afectadas: 5 queries SQL
+Cambios: 10 ocurrencias (5x fecha, 5x presupuesto)
+
+Queries a modificar:
+    1. Línea 29:  ANALIZAR_TENDENCIA_VENTAS()
+    2. Línea 104: PREDECIR_VENTAS_PRÓXIMAS_SEMANAS()
+    3. Línea 158: PREDECIR_VENTAS_PRÓXIMOS_MESES()
+    4. Línea 204: ANALIZAR_ESTACIONALIDAD()
+    5. Línea 270: CALCULAR_SCORE_SALUD()
+
+Método: multi_replace_string_in_file (batch operation)
+
+
+PASO 2: Aplicar correcciones CRÍTICAS en cash.py
+─────────────────────────────────────────────────────────────────────────────
+Archivos: 1
+Líneas afectadas: 2 queries SQL
+Cambios: Eliminación de JOIN finanzas + renombres de campos
+
+Queries a modificar:
+    1. Línea 119: Servicios cobrados (eliminar JOIN finanzas)
+    2. Línea 299: Reporte de cierre (cambiar finanzas → ordenes)
+
+Método: multi_replace_string_in_file (batch operation)
+
+
+PASO 3: Validación post-cambios
+─────────────────────────────────────────────────────────────────────────────
+Tests recomendados:
+    1. Abrir dashboard de predicciones → Verificar que carga tendencias
+    2. Generar predicción semanal → Verificar que muestra próximas semanas
+    3. Abrir módulo de caja → Verificar que muestra servicios del día
+    4. Cerrar turno de caja → Verificar que genera reporte correctamente
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        CÓDIGO ANTES/DESPUÉS
+═══════════════════════════════════════════════════════════════════════════════
+
+EJEMPLO 1: prediccion_logic.py - ANALIZAR_TENDENCIA_VENTAS()
+─────────────────────────────────────────────────────────────────────────────
+
+ANTES (Línea 29):
+    ventas_diarias = self.db.fetch_all(
+        "SELECT DATE(fecha), SUM(presupuesto) FROM ordenes WHERE DATE(fecha) >= ? GROUP BY DATE(fecha) ORDER BY fecha ASC",
+        (fecha_inicio,)
+    )
+
+DESPUÉS:
+    ventas_diarias = self.db.fetch_all(
+        "SELECT DATE(fecha_entrada), SUM(presupuesto_inicial) FROM ordenes WHERE DATE(fecha_entrada) >= ? GROUP BY DATE(fecha_entrada) ORDER BY fecha_entrada ASC",
+        (fecha_inicio,)
+    )
+
+JUSTIFICACIÓN:
+    • fecha → fecha_entrada: Campo renombrado en nueva estructura (representa fecha ingreso orden)
+    • presupuesto → presupuesto_inicial: Campo renombrado en nueva estructura (presupuesto original estimado)
+    • Los 4 usos de "fecha" en el query deben cambiarse para consistencia SQL
+
+
+EJEMPLO 2: cash.py - Query servicios cobrados
+─────────────────────────────────────────────────────────────────────────────
+
+ANTES (Línea 119-124):
+    servicios_query = """SELECT o.id, o.equipo, o.modelo, f.total_cobrado, f.fecha_cierre, c.nombre
+                         FROM ordenes o
+                         JOIN finanzas f ON o.id = f.orden_id
+                         JOIN clientes c ON o.cliente_id = c.id
+                         WHERE f.fecha_cierre >= ? 
+                         ORDER BY f.fecha_cierre DESC"""
+
+DESPUÉS:
+    servicios_query = """SELECT o.id, o.equipo, o.modelo, o.total_a_cobrar, o.fecha_cierre, c.nombre
+                         FROM ordenes o
+                         JOIN clientes c ON o.cliente_id = c.id
+                         WHERE o.fecha_cierre >= ? 
+                         ORDER BY o.fecha_cierre DESC"""
+
+JUSTIFICACIÓN:
+    • Tabla finanzas fue eliminada en SEMANA 1 (consolidada en ordenes)
+    • f.total_cobrado → o.total_a_cobrar: Campo ahora está en ordenes (calculado por trigger)
+    • f.fecha_cierre → o.fecha_cierre: Campo ahora está en ordenes (indica orden cerrada)
+    • JOIN finanzas eliminado: Ya no existe la relación orden → finanzas
+
+
+EJEMPLO 3: cash.py - Query reporte de cierre
+─────────────────────────────────────────────────────────────────────────────
+
+ANTES (Línea 299):
+    res_t = self.logic.bd.OBTENER_UNO(
+        "SELECT SUM(monto_efectivo), SUM(monto_transferencia), SUM(monto_debito), SUM(monto_credito) 
+         FROM finanzas 
+         WHERE fecha_cierre >= ? AND fecha_cierre <= ?", 
+        (f_inicio, f_fin)
+    )
+
+DESPUÉS:
+    res_t = self.logic.bd.OBTENER_UNO(
+        "SELECT SUM(pago_efectivo), SUM(pago_transferencia), SUM(pago_debito), SUM(pago_credito) 
+         FROM ordenes 
+         WHERE fecha_cierre >= ? AND fecha_cierre <= ?", 
+        (f_inicio, f_fin)
+    )
+
+JUSTIFICACIÓN:
+    • FROM finanzas → FROM ordenes: Tabla finanzas eliminada en SEMANA 1
+    • monto_* → pago_*: Renombre de campos en nueva estructura (más descriptivo)
+    • fecha_cierre: Existe en ordenes (sin cambio necesario en WHERE/AND)
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        TESTING REQUERIDO
+═══════════════════════════════════════════════════════════════════════════════
+
+TESTS CRÍTICOS - prediccion_logic.py:
+─────────────────────────────────────────────────────────────────────────────
+1. Test: Análisis de tendencias
+   Ejecutar: ANALIZAR_TENDENCIA_VENTAS(30)
+   Verificar: Devuelve dict con estadísticas y datos completos
+   Validar: No arroja error "no such column: fecha"
+
+2. Test: Predicción semanal
+   Ejecutar: PREDECIR_VENTAS_PRÓXIMAS_SEMANAS(4)
+   Verificar: Devuelve 4 predicciones con fechas futuras
+   Validar: No arroja error "no such column: presupuesto"
+
+3. Test: Análisis estacional
+   Ejecutar: ANALIZAR_ESTACIONALIDAD()
+   Verificar: Devuelve análisis por mes con índices
+   Validar: Suma correcta de ventas por mes
+
+4. Test: Score de salud
+   Ejecutar: CALCULAR_SCORE_SALUD()
+   Verificar: Devuelve score 0-100
+   Validar: Tasa de cobranza calculada correctamente
+
+
+TESTS CRÍTICOS - cash.py:
+─────────────────────────────────────────────────────────────────────────────
+1. Test: Ver servicios del día
+   Acción: Abrir módulo de caja con turno activo
+   Verificar: Se muestran órdenes cerradas del día
+   Validar: No arroja error "no such table: finanzas"
+
+2. Test: Generar reporte de cierre
+   Acción: Cerrar turno y generar reporte
+   Verificar: Reporte muestra totales por método de pago
+   Validar: Totales coinciden con suma de pagos en ordenes
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        RECOMENDACIONES
+═══════════════════════════════════════════════════════════════════════════════
+
+1. PRIORIZAR cash.py
+   Razón: Contiene referencias a tabla finanzas (bloqueante)
+   Acción: Aplicar cambios ANTES de prediccion_logic.py
+
+2. BACKUP DE ARCHIVOS
+   Archivos: prediccion_logic.py, cash.py
+   Método: Git commit antes de modificar
+
+3. VALIDACIÓN POST-CAMBIOS
+   Herramienta: Abrir aplicación y probar cada módulo
+   Checklist: Dashboard predicciones, módulo caja, reportes
+
+4. MONITOREO DE ERRORES
+   Logs: Revisar consola Python durante testing
+   Queries: Verificar que no aparezcan errores SQL
+
+5. DOCUMENTACIÓN
+   Generar: CAMBIOS_SEMANA_2_APLICADOS.txt
+   Incluir: Código antes/después, testing realizado
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        RESUMEN FINAL
+═══════════════════════════════════════════════════════════════════════════════
+
+ARCHIVOS A MODIFICAR: 2
+    • prediccion_logic.py (5 queries, 10 ocurrencias)
+    • cash.py (2 queries, 6 campos + 1 JOIN eliminado)
+
+CAMBIOS TOTALES: 17 modificaciones de código
+
+CRITICIDAD: ⚠️⚠️⚠️ ALTA
+    • cash.py: BLOQUEANTE (tabla finanzas no existe)
+    • prediccion_logic.py: ALTA (queries fallarán)
+
+TIEMPO ESTIMADO: 10 minutos
+    • Aplicación de cambios: 5 min
+    • Testing básico: 5 min
+
+COMPATIBILIDAD: ✅ SIN BREAKING CHANGES
+    • API pública no cambia
+    • Interfaces de usuario no cambian
+    • Solo cambios internos de queries SQL
+
+PREREQUISITOS: ✅ CUMPLIDOS
+    • SEMANA 1 completada (tabla ordenes consolidada)
+    • Base de datos migrada a nueva estructura (15 tablas)
+    • Triggers activos para cálculos automáticos
+
+SIGUIENTE FASE: SEMANA 3 (11 cambios MEDIA prioridad)
+    • reportes_avanzados_logic.py
+    • Otros archivos con renombres de columnas
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        AUTORIZACIÓN REQUERIDA
+═══════════════════════════════════════════════════════════════════════════════
+
+PREGUNTA: ¿Autoriza la aplicación de estos 17 cambios en los 2 archivos analizados?
+
+SI AUTORIZA:
+    1. Aplicaré cambios usando multi_replace_string_in_file
+    2. Generaré documento CAMBIOS_SEMANA_2_APLICADOS.txt
+    3. Actualizaré todo list con progreso
+    4. Presentaré resumen de cambios aplicados
+
+SI NO AUTORIZA:
+    Indique qué requiere ajustes o aclaraciones adicionales.
+
+
+═══════════════════════════════════════════════════════════════════════════════
+                        FIN DEL ANÁLISIS
+═══════════════════════════════════════════════════════════════════════════════

@@ -115,25 +115,25 @@ class IMPORTADOR_DATOS:
                     
                     # Validaciones
                     if not rut or rut.upper() == "NAN":
-                        self.advertencias.append(f"Fila {idx+1}: RUT vacío, SALTADA")
+                        self.advertencias.append(f"Fila {idx+1}: CÉDULA vacía, SALTADA")
                         self.registros_saltados += 1
                         continue
                     
                     # Verificar si cliente existe
                     existe = self.db.fetch_one(
-                        "SELECT id FROM clientes WHERE rut = ?", 
+                        "SELECT id FROM clientes WHERE cedula = ?", 
                         (rut,)
                     )
                     
                     if existe:
                         self.advertencias.append(f"Cliente {rut} ya existe, ACTUALIZADO")
                         self.db.execute(
-                            "UPDATE clientes SET nombre=?, telefono=?, email=?, ciudad=?, fecha_actualizacion=? WHERE rut=?",
+                            "UPDATE clientes SET nombre=?, telefono=?, email=?, ciudad=?, fecha_actualizacion=? WHERE cedula=?",
                             (nombre, telefono, email, ciudad, datetime.now(), rut)
                         )
                     else:
                         self.db.execute(
-                            "INSERT INTO clientes (rut, nombre, telefono, email, ciudad, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?)",
+                            "INSERT INTO clientes (cedula, nombre, telefono, email, ciudad, fecha_creacion) VALUES (?, ?, ?, ?, ?, ?)",
                             (rut, nombre, telefono, email, ciudad, datetime.now())
                         )
                         self.registros_procesados += 1
@@ -182,7 +182,7 @@ class IMPORTADOR_DATOS:
                     
                     # Validar cliente
                     cliente = self.db.fetch_one(
-                        "SELECT id FROM clientes WHERE rut = ? OR nombre LIKE ?",
+                        "SELECT id FROM clientes WHERE cedula = ? OR nombre LIKE ?",
                         (cliente_ref, f"%{cliente_ref}%")
                     )
                     
@@ -193,7 +193,7 @@ class IMPORTADOR_DATOS:
                     
                     # Insertar orden
                     self.db.execute(
-                        "INSERT INTO ordenes (cliente_id, tipo, marca, modelo, observacion, presupuesto, estado, fecha) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        "INSERT INTO ordenes (cliente_id, tipo, marca, modelo, observacion, presupuesto_inicial, estado, fecha_entrada) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
                         (cliente[0], equipo, marca, modelo, falla, presupuesto, estado, datetime.now())
                     )
                     self.registros_procesados += 1

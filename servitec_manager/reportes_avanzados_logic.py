@@ -23,11 +23,11 @@ class REPORTES_AVANZADOS:
         """Reporte completo de ventas en período"""
         try:
             ventas = self.db.fetch_all(
-                "SELECT id, cliente_id, presupuesto, abono, estado, fecha FROM ordenes WHERE fecha BETWEEN ? AND ? ORDER BY fecha DESC",
+                "SELECT id, cliente_id, presupuesto_inicial, abono, estado, fecha_entrada FROM ordenes WHERE fecha_entrada BETWEEN ? AND ? ORDER BY fecha_entrada DESC",
                 (fecha_inicio, fecha_fin)
             )
             
-            total_ventas = sum(v[2] for v in ventas)  # presupuesto
+            total_ventas = sum(v[2] for v in ventas)  # presupuesto_inicial
             total_cobrado = sum(v[3] if v[3] else 0 for v in ventas)  # abono
             pendiente = total_ventas - total_cobrado
             cantidad_ordenes = len(ventas)
@@ -59,7 +59,7 @@ class REPORTES_AVANZADOS:
         """Desglose de ventas por día"""
         try:
             ventas = self.db.fetch_all(
-                "SELECT DATE(fecha) as fecha, SUM(presupuesto) as total, COUNT(*) as cantidad FROM ordenes WHERE fecha BETWEEN ? AND ? GROUP BY DATE(fecha) ORDER BY fecha DESC",
+                "SELECT DATE(fecha_entrada) as fecha, SUM(presupuesto_inicial) as total, COUNT(*) as cantidad FROM ordenes WHERE fecha_entrada BETWEEN ? AND ? GROUP BY DATE(fecha_entrada) ORDER BY fecha DESC",
                 (fecha_inicio, fecha_fin)
             )
             
@@ -113,7 +113,7 @@ class REPORTES_AVANZADOS:
         try:
             # Ventas
             ventas = self.db.fetch_one(
-                "SELECT SUM(presupuesto) as total FROM ordenes WHERE fecha BETWEEN ? AND ?",
+                "SELECT SUM(presupuesto_inicial) as total FROM ordenes WHERE fecha_entrada BETWEEN ? AND ?",
                 (fecha_inicio, fecha_fin)
             )
             total_ventas = ventas[0] if ventas[0] else 0
@@ -135,10 +135,16 @@ class REPORTES_AVANZADOS:
             # Costos de productos vendidos (si aplica)
             costos_productos = self._CALCULAR_COSTOS_PRODUCTOS(fecha_inicio, fecha_fin)
             
+            # Utilidad bruta calculada por trigger (ya incluye todos los costos: repuestos, servicios)
+            utilidad = self.db.fetch_one(
+                "SELECT COALESCE(SUM(utilidad_bruta), 0) as total FROM ordenes WHERE fecha_cierre BETWEEN ? AND ? AND fecha_cierre IS NOT NULL AND estado = 'Entregado'",
+                (fecha_inicio, fecha_fin)
+            )
+            ganancia_bruta = utilidad[0] if utilidad[0] else 0
+            
             # Cálculos
             costo_total = total_mo + total_gastos + costos_productos
-            ganancia_bruta = total_ventas - total_mo
-            ganancia_neta = total_ventas - costo_total
+            ganancia_neta = ganancia_bruta - total_gastos
             margen_bruto = (ganancia_bruta / total_ventas * 100) if total_ventas > 0 else 0
             margen_neto = (ganancia_neta / total_ventas * 100) if total_ventas > 0 else 0
             
@@ -222,7 +228,7 @@ class REPORTES_AVANZADOS:
         """Clientes con más compras/gasto"""
         try:
             clientes = self.db.fetch_all(
-                "SELECT c.nombre, COUNT(o.id) as cantidad, SUM(o.presupuesto) as total FROM clientes c LEFT JOIN ordenes o ON c.id = o.cliente_id GROUP BY c.id ORDER BY total DESC LIMIT ?",
+                "SELECT c.nombre, COUNT(o.id) as cantidad, SUM(o.presupuesto_inicial) as total FROM clientes c LEFT JOIN ordenes o ON c.id = o.cliente_id GROUP BY c.id ORDER BY total DESC LIMIT ?",
                 (límite,)
             )
             
@@ -265,7 +271,7 @@ class REPORTES_AVANZADOS:
         try:
             # Órdenes pendientes sin cobro
             pendientes = self.db.fetch_one(
-                "SELECT COUNT(*) FROM ordenes WHERE estado = 'PENDIENTE' AND DATE(fecha) < DATE('now', '-15 days')"
+                "SELECT COUNT(*) FROM ordenes WHERE estado = 'PENDIENTE' AND DATE(fecha_entrada) < DATE('now', '-15 days')"
             )
             if pendientes[0] > 5:
                 alertas.append(f"⚠️ CRÍTICO: {pendientes[0]} órdenes pendientes vencidas (>15 días)")

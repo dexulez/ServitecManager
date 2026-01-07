@@ -1,0 +1,203 @@
+================================================================================
+MATRIZ EJECUTIVA - RESUMEN DE CAMBIOS
+================================================================================
+
+Archivo                      Líneas      Severidad   Cambios Requeridos
+───────────────────────────────────────────────────────────────────────
+database.py                  181,245,   MEDIA       Eliminar CREATE TABLE finanzas
+                             331,334                Eliminar INDEX finanzas
+
+logic.py                     1005-1010  CRITICA     Cambiar query - finanzas → ordenes
+                             1030-1043  CRITICA     Cambiar INSERT finanzas → UPDATE ordenes
+                             1163       ALTA        Cambiar verificación finanzas
+                             1198,      ALTA        Cambiar 5x JOIN con finanzas
+                             1253,
+                             1260,
+                             1268,
+                             1272
+
+ui/workshop.py              55-66      MEDIA        Eliminar cálculo auto_fill_payment
+                            251-253    CRITICA     Cambiar índices orden[12] → presupuesto_inicial
+                            276        CRITICA     Cambiar INSERT detalles_orden → orden_repuestos
+                            368-397    CRITICA     Cambiar DELETE/SELECT detalles_orden
+                            414-420    MEDIA        Eliminar cálculo presupuesto-descuento
+                            476-483    MEDIA        Revisar cálculo comisión
+
+ui/pos.py                   136-143    MEDIA        Eliminar cálculo get_total_to_pay()
+                            160        MEDIA        Cambiar leer saldo_pendiente de BD
+                            384-419    CRITICA     Cambiar cargar costos desde detalles_orden → orden_repuestos
+
+ui/cash.py                  117-121    ALTA         Cambiar SELECT FROM finanzas
+                            299        ALTA         Cambiar SELECT FROM finanzas
+
+ui/history.py               165-182    MEDIA        Cambiar acceso datos finanzas → ordenes
+
+prediccion_logic.py         29,104     ALTA         Cambiar 'fecha' → 'fecha_entrada'
+                            158,204    ALTA         Cambiar 'presupuesto' → 'presupuesto_inicial'
+                            270        MEDIA        Cambiar cálculo tasa cobranza
+                            303        BAJA         Usar vista_clientes_mas_activos
+
+reportes_avanzados_logic.py 24-29      ALTA         Cambiar presupuesto → presupuesto_inicial
+                            40-50      MEDIA        Cambiar cálculo totales - usar total_a_cobrar
+                            113-130    MEDIA        Cambiar query finanzas → ordenes
+
+pdf_generator_v2.py         356-365    MEDIA        Cambiar cálculo manual - confiar en BD
+
+cargar_datos_prueba.py      154-179    BAJA         Eliminar población finanzas
+                            161        BAJA         Cambiar variable presupuesto
+
+main.py                     112-126    BAJA         Eliminar CREATE TABLE detalles_orden
+
+optimizar_bd.py             37,40      BAJA         Eliminar CREATE INDEX finanzas
+
+optimizar_bd_indices.py     26,29      BAJA         Eliminar CREATE INDEX finanzas
+
+api_server.py               417        BAJA         Revisar INSERT detalle_ventas
+
+diagnostico.py              84         BAJA         Eliminar JOIN finanzas
+
+ui/admin.py                 298        BAJA         Eliminar finanzas de lista tablas
+
+test_sistema.py             (varias)   BAJA         Actualizar test data
+
+ui/reports.py               90         BAJA         Cambiar referencia finanzas
+
+================================================================================
+DISTRIBUCION POR SEVERIDAD
+================================================================================
+
+CRITICA (Bloquea funcionalidad):
+─────────────────────────────────
+- logic.py:      2 funciones
+- ui/workshop.py: 3 operaciones 
+- ui/pos.py:     1 operación
+Total: 6 cambios críticos
+
+ALTA (Rompe features):
+──────────────────────
+- logic.py:      2 cambios
+- ui/cash.py:    2 cambios
+- prediccion_logic.py: 2 cambios
+- reportes_avanzados_logic.py: 1 cambio
+Total: 7 cambios altos
+
+MEDIA (Necesita atención):
+──────────────────────────
+- database.py:   2 cambios
+- ui/workshop.py: 2 cambios
+- ui/pos.py:     2 cambios
+- ui/history.py: 1 cambio
+- prediccion_logic.py: 1 cambio
+- reportes_avanzados_logic.py: 2 cambios
+- pdf_generator_v2.py: 1 cambio
+Total: 11 cambios medianos
+
+BAJA (Optimización):
+────────────────────
+- main.py:       1 cambio
+- cargar_datos_prueba.py: 2 cambios
+- optimizar_bd.py: 1 cambio
+- optimizar_bd_indices.py: 1 cambio
+- api_server.py: 1 cambio
+- diagnostico.py: 1 cambio
+- ui/admin.py:   1 cambio
+- test_sistema.py: 1 cambio
+- ui/reports.py: 1 cambio
+Total: 10 cambios bajos
+
+================================================================================
+HOJA DE RUTA DE IMPLEMENTACION
+================================================================================
+
+ETAPA 1: Semana 1 - CRITICA (6 cambios)
+──────────────────────────────────────
+Día 1-2:
+  ✓ logic.py: Eliminar función CERRAR_ORDEN_FINANZAS
+  ✓ logic.py: Actualizar método PUEDE_EDITARSE_ORDEN()
+  ✓ Verificar que ordenes.fecha_cierre funciona para cierre de órdenes
+
+Día 3-4:
+  ✓ ui/workshop.py: Cambiar INSERT a tabla orden_repuestos
+  ✓ ui/workshop.py: Cambiar DELETE/SELECT de detalles_orden
+  ✓ Pruebas unitarias: Workshop guarda costos correctamente
+
+Día 5:
+  ✓ ui/pos.py: Cambiar carga de costos desde orden_repuestos
+  ✓ Integración testing: POS carga y muestra costos
+
+ETAPA 2: Semana 2 - ALTA (7 cambios)
+─────────────────────────────────────
+Día 1-2:
+  ✓ prediccion_logic.py: Cambiar 'fecha' → 'fecha_entrada' (5 ubicaciones)
+  ✓ prediccion_logic.py: Cambiar 'presupuesto' → 'presupuesto_inicial'
+
+Día 3:
+  ✓ ui/cash.py: Cambiar SELECT FROM finanzas (2 ubicaciones)
+  ✓ Pruebas: Cash close funciona con nuevo esquema
+
+Día 4-5:
+  ✓ reportes_avanzados_logic.py: Actualizar referencias de columnas
+  ✓ Pruebas: Reportes muestran datos correctos
+
+ETAPA 3: Semana 3 - MEDIA (11 cambios)
+───────────────────────────────────────
+Día 1-2:
+  ✓ database.py: Eliminar definiciones obsoletas
+  ✓ ui/workshop.py: Eliminar cálculos duplicados
+  ✓ ui/pos.py: Eliminar cálculos duplicados
+
+Día 3-4:
+  ✓ reportes_avanzados_logic.py: Cambiar cálculos de totales
+  ✓ ui/history.py: Actualizar acceso a datos
+
+Día 5:
+  ✓ pdf_generator_v2.py: Revisar y actualizar indices
+  ✓ Pruebas: PDFs se generan correctamente
+
+ETAPA 4: Semana 4 - BAJA (10 cambios)
+───────────────────────────────────────
+Día 1-2:
+  ✓ Eliminar referencias en archivos auxiliares
+  ✓ main.py, optimizar_bd.py, etc.
+
+Día 3-4:
+  ✓ Actualizar test data
+  ✓ Actualizar admin UI
+
+Día 5:
+  ✓ Testing integral
+  ✓ Preparar para producción
+
+================================================================================
+LISTA DE VALIDACION PRE-PRODUCCION
+================================================================================
+
+ANTES DE CAMBIAR A PRODUCCION:
+
+□ Todas las operaciones CRITICA completadas y testeadas
+□ Workshop guarda costos en orden_repuestos
+□ POS carga costos correctamente
+□ Órdenes se cierran sin errores
+□ Cash drawer funciona sin finanzas
+
+□ Operaciones ALTA completadas
+□ Predicción usa fecha_entrada y presupuesto_inicial
+□ Reportes se generan correctamente
+□ Cash reports muestran datos de ordenes
+
+□ Operaciones MEDIA completadas
+□ Triggers calculan automáticamente (no código manual)
+□ Vistas se utilizan donde apropiado
+
+□ Testing Integral:
+  □ 100 órdenes completas (create, update, close)
+  □ 50 pagos parciales
+  □ 20 reportes por período
+  □ 10 predicciones generadas
+  □ Cash close 5 días
+
+□ Backup SERVITEC.DB realizado
+□ SERVITEC_TEST_OPTIMIZED.DB validada
+□ Usuarios entrenados en cambios
+
+================================================================================

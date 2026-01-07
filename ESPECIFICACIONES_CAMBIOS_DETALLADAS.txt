@@ -1,0 +1,560 @@
+================================================================================
+ESPECIFICACIONES DETALLADAS DE CAMBIOS
+================================================================================
+
+================================================================================
+CAMBIO CRITICA #1: logic.py - CERRAR_ORDEN_FINANZAS()
+================================================================================
+
+UBICACION: logic.py, líneas 1030-1043
+PROBLEMA: Intenta insertar en tabla FINANZAS que ya no existe
+IMPACTO: Las órdenes no se pueden cerrar (ERROR SQL)
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+def CERRAR_ORDEN_FINANZAS(self, orden_id, total, repuestos, envío, abonos_dict):
+    """Cierra orden con datos financieros - INSERTA EN FINANZAS (TABLA ELIMINADA)"""
+    
+    efectivo = abonos_dict.get('efectivo', 0) or 0
+    transferencia = abonos_dict.get('transferencia', 0) or 0
+    tarjeta = abonos_dict.get('tarjeta', 0) or 0
+    # ... cálculos ...
+    com_tec = utilidad_comisionable * 0.15
+    util_com = utilidad_operativa - com_tec
+    
+    return self.bd.EJECUTAR_CONSULTA(
+        "INSERT INTO finanzas (orden_id, total_cobrado, costo_repuesto, costo_envio, "
+        "monto_efectivo, monto_transferencia, monto_debito, monto_credito, aplicó_iva, "
+        "utilidad_real, monto_comision_tecnico, fecha_cierre) "
+        "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))",
+        (orden_id, total, repuestos, envío, efectivo, transferencia, tarjeta, 0, 1 if con_iva else 0, util_com, com_tec)
+    )
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+def CERRAR_ORDEN_FINANZAS(self, orden_id, total, repuestos, envío, abonos_dict):
+    """Cierra orden actualizando campos en tabla ORDENES (no inserta en finanzas)"""
+    
+    efectivo = abonos_dict.get('efectivo', 0) or 0
+    transferencia = abonos_dict.get('transferencia', 0) or 0
+    tarjeta = abonos_dict.get('tarjeta', 0) or 0
+    # ... cálculos utilizades, comisión ...
+    
+    # EN LUGAR DE INSERT INTO finanzas, HACER UPDATE EN ORDENES:
+    return self.bd.EJECUTAR_CONSULTA(
+        "UPDATE ordenes SET "
+        "fecha_cierre = datetime('now'), "
+        "estado = 'Entregado', "
+        "pago_efectivo = ?, "
+        "pago_transferencia = ?, "
+        "pago_tarjeta = ?, "
+        "utilidad_bruta = ?, "
+        "comision_tecnico = ?, "
+        "costo_total_servicios = ? "
+        "WHERE id = ?",
+        (efectivo, transferencia, tarjeta, util_com, com_tec, repuestos, orden_id)
+    )
+    # LOS TRIGGERS AUTOMATICAMENTE CALCULARAN:
+    # - total_a_cobrar (presupuesto_inicial - descuento)
+    # - saldo_pendiente (total_a_cobrar - abonos)
+
+CAMPOS A USAR EN ORDENES:
+────────────────────────
+- pago_efectivo: monto de efectivo recibido
+- pago_transferencia: monto de transferencia
+- pago_tarjeta: monto de tarjeta
+- pago_debito: monto de débito (si aplica)
+- pago_credito: monto de crédito (si aplica)
+- fecha_cierre: TIMESTAMP cuando se cerró
+- utilidad_bruta: utilidad total (automática por trigger)
+- comision_tecnico: comisión del técnico
+- costo_total_servicios: costo de servicios
+
+TRIGGERS QUE CALCULARAN AUTOMATICAMENTE:
+────────────────────────────────────────
+- tr_ordenes_insert_calcula_campos: Calcula total_a_cobrar, saldo_pendiente
+- tr_ordenes_update_pagos: Actualiza saldo al cambiar pagos
+- tr_ordenes_update_utilidad: Calcula utilidad_bruta
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear orden de prueba con servicios + repuestos
+2. Realizar pagos parciales (efectivo + tarjeta)
+3. Cerrar orden
+4. Verificar: 
+   - pago_efectivo, pago_tarjeta actualizados
+   - fecha_cierre = NOW
+   - saldo_pendiente calculado automáticamente
+   - utilidad_bruta calculada
+
+================================================================================
+CAMBIO CRITICA #2: logic.py - PUEDE_EDITARSE_ORDEN()
+================================================================================
+
+UBICACION: logic.py, líneas 1005-1010
+PROBLEMA: Verifica si orden puede editarse consultando tabla FINANZAS inexistente
+IMPACTO: Siempre devuelve False, órdenes no se pueden editar
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+def OPERACION_ORDEN_PUEDE_EDITARSE(self, orden_id):
+    """Retorna True si la orden AUN puede editarse (sin finanzas registradas)"""
+    
+    finanzas = self.bd.OBTENER_UNO(
+        "SELECT id FROM finanzas WHERE orden_id = ?", (orden_id,)
+    )
+    # Si finanzas NO existe, la orden se puede editar
+    return finanzas is None
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+def OPERACION_ORDEN_PUEDE_EDITARSE(self, orden_id):
+    """Retorna True si la orden AUN puede editarse (sin fecha_cierre)"""
+    
+    # En nuevo esquema, si orden tiene fecha_cierre, no se puede editar
+    # porque ya fue entregada/cerrada
+    orden = self.bd.OBTENER_UNO(
+        "SELECT fecha_cierre FROM ordenes WHERE id = ?", (orden_id,)
+    )
+    
+    if orden is None:
+        return False  # Orden no existe
+    
+    # Si fecha_cierre es NULL, orden se puede editar
+    # Si fecha_cierre tiene fecha, no se puede editar
+    return orden[0] is None
+
+CAMPOS QUE INDICAN EDICION PERMITIDA:
+──────────────────────────────────────
+- fecha_cierre = NULL → Se puede editar
+- fecha_cierre = NOT NULL → No se puede editar
+- estado != 'Entregado' → Se puede editar
+- estado = 'Entregado' → No se puede editar
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear nueva orden → debe permitir edición
+2. Cerrar orden → debe bloquear edición
+3. Verificar fecha_cierre = NOW cuando cierra
+
+================================================================================
+CAMBIO CRITICA #3: ui/workshop.py - Guardar costos (linea 276, 368-397)
+================================================================================
+
+UBICACION: ui/workshop.py, líneas 276, 368-397
+PROBLEMA: Intenta insertar/actualizar en tabla DETALLES_ORDEN que no existe
+IMPACTO: Los costos de servicios/repuestos no se guardan
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+def save_order(self):
+    # ... validación ...
+    
+    # Guardar línea de detalle en detalles_orden (tabla que no existe)
+    cursor.execute("""
+        INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, 
+                                   cantidad, precio_unitario, costo, descuento)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+    """, (orden_id, tipo_item, desc, qty, price, total, desc_amount))
+
+def delete_line(self, line_id):
+    # Eliminar de detalles_orden
+    cursor.execute("DELETE FROM detalles_orden WHERE id = ?", (line_id,))
+
+ANALISIS DE ESTRUCTURA ACTUAL:
+──────────────────────────────
+Cuando tipo_item = 'repuesto':
+  → Debe insertarse en tabla ORDEN_REPUESTOS
+  → Campos: orden_id, repuesto_id, cantidad, precio_unitario
+
+Cuando tipo_item = 'servicio':
+  → Debe insertarse en tabla ORDEN_SERVICIOS
+  → Campos: orden_id, servicio_id, descripcion, monto
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+def save_order(self):
+    # ... validación ...
+    
+    if tipo_item == 'repuesto':
+        # Guardar en orden_repuestos
+        cursor.execute("""
+            INSERT INTO orden_repuestos 
+            (orden_id, repuesto_id, cantidad, precio_unitario)
+            VALUES (?, ?, ?, ?)
+        """, (orden_id, repuesto_id, qty, price))
+        
+    elif tipo_item == 'servicio':
+        # Guardar en orden_servicios
+        cursor.execute("""
+            INSERT INTO orden_servicios 
+            (orden_id, servicio_id, descripcion, monto)
+            VALUES (?, ?, ?, ?)
+        """, (orden_id, servicio_id, desc, monto))
+
+def delete_line(self, line_id):
+    """Eliminar línea - determinar si es repuesto o servicio"""
+    # Buscar en ambas tablas
+    repuesto = cursor.execute(
+        "SELECT id FROM orden_repuestos WHERE id = ?", (line_id,)
+    ).fetchone()
+    
+    if repuesto:
+        cursor.execute("DELETE FROM orden_repuestos WHERE id = ?", (line_id,))
+    else:
+        cursor.execute("DELETE FROM orden_servicios WHERE id = ?", (line_id,))
+
+CAMPOS CORRESPONDIENTES:
+───────────────────────
+ORDEN_REPUESTOS:
+  - id (autoincrement)
+  - orden_id (FK)
+  - repuesto_id (FK a inventario)
+  - cantidad (INT)
+  - precio_unitario (REAL)
+
+ORDEN_SERVICIOS:
+  - id (autoincrement)
+  - orden_id (FK)
+  - servicio_id (FK a servicios, puede ser NULL)
+  - descripcion (TEXT)
+  - monto (REAL)
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear orden nueva
+2. Agregar 2 líneas de repuestos
+3. Agregar 1 línea de servicio
+4. Guardar orden
+5. Verificar: 
+   - 2 registros en orden_repuestos
+   - 1 registro en orden_servicios
+6. Editar order: cambiar cantidad
+7. Verificar: orden_repuestos se actualiza
+8. Eliminar línea
+9. Verificar: se elimina de tabla correspondiente
+
+================================================================================
+CAMBIO CRITICA #4: ui/pos.py - Cargar costos (línea 384-419)
+================================================================================
+
+UBICACION: ui/pos.py, líneas 384-419
+PROBLEMA: Intenta cargar costos de tabla DETALLES_ORDEN que no existe
+IMPACTO: POS no carga información de servicios/repuestos asociados
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+def load_order_details(self, orden_id):
+    """Carga detalles de la orden para el checkout"""
+    
+    cursor = self.db.OBTENER_TODOS(
+        "SELECT id, tipo_item, descripcion, cantidad, precio FROM detalles_orden WHERE orden_id = ?",
+        (orden_id,)
+    )
+    
+    for row in cursor:
+        item_id, tipo, desc, qty, price = row
+        total = qty * price
+        # Mostrar en tabla POS
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+def load_order_details(self, orden_id):
+    """Carga detalles de la orden para el checkout"""
+    
+    # Cargar repuestos
+    repuestos = self.db.OBTENER_TODOS(
+        """SELECT id, 'repuesto' as tipo_item, 
+                  (SELECT nombre FROM inventario WHERE id = orden_repuestos.repuesto_id) as descripcion,
+                  cantidad, precio_unitario 
+           FROM orden_repuestos 
+           WHERE orden_id = ?""",
+        (orden_id,)
+    )
+    
+    # Cargar servicios
+    servicios = self.db.OBTENER_TODOS(
+        """SELECT id, 'servicio' as tipo_item, descripcion, 1 as cantidad, monto as precio_unitario
+           FROM orden_servicios 
+           WHERE orden_id = ?""",
+        (orden_id,)
+    )
+    
+    # Combinar ambos listados
+    todos_items = list(repuestos) + list(servicios)
+    
+    for row in todos_items:
+        item_id, tipo, desc, qty, price = row
+        total = qty * price
+        # Mostrar en tabla POS
+
+CAMPOS CORRESPONDIENTES:
+───────────────────────
+Desde ORDEN_REPUESTOS:
+  - id: identificador único
+  - repuesto_id: referencia a inventario
+  - cantidad: cantidad
+  - precio_unitario: precio individual
+
+Desde ORDEN_SERVICIOS:
+  - id: identificador único
+  - descripcion: descripción del servicio
+  - monto: monto total del servicio
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear orden en workshop
+2. Agregar 1 repuesto (ej: tornillo, qty 5, $100 c/u = $500)
+3. Agregar 1 servicio (ej: reparación, $1500)
+4. Guardar orden
+5. Abrir POS
+6. Cargar orden
+7. Verificar: tabla muestra ambos items con totales correctos
+   - Repuesto: 5 x $100 = $500
+   - Servicio: 1 x $1500 = $1500
+8. Total esperado en POS: $2000
+
+================================================================================
+CAMBIO CRITICA #5: ui/workshop.py - Actualizar índices orden (línea 251-253)
+================================================================================
+
+UBICACION: ui/workshop.py, línea 251-253
+PROBLEMA: Usa índices de tupla antiguos después que SELECT cambió
+IMPACTO: Pantalla workshop muestra datos incorrectos o vacíos
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+order = self.db.OBTENER_UNO(
+    "SELECT ... FROM ordenes WHERE id = ?", (self.order_id,)
+)
+
+presupuesto = order[12]  # ← INDICE INCORRECTO EN NUEVO ESQUEMA
+abono = order[13]        # ← INDICE INCORRECTO EN NUEVO ESQUEMA
+saldo = presupuesto - abono  # Manual calculation
+
+ANALIZAR LA ESTRUCTURA ACTUAL DEL SELECT:
+──────────────────────────────────────────
+Ejecutar en BD:
+  SELECT COUNT(*) FROM (SELECT * FROM ordenes LIMIT 1)
+  
+Esto te dirá cuántos campos retorna el SELECT actual.
+
+Luego:
+  SELECT * FROM ordenes LIMIT 1
+  
+Esto te mostrará el orden exacto de los campos.
+
+Supongamos que retorna (ejemplo):
+  0: id
+  1: cliente_id
+  2: tecnico_id
+  3: descripcion
+  4: estado
+  5: equipo
+  6: modelo
+  7: observaciones
+  8: presupuesto_inicial
+  9: costo_total_repuestos
+  10: costo_total_servicios
+  11: costo_envio
+  12: descuento
+  13: total_a_cobrar
+  14: abono
+  15: saldo_pendiente
+  16: ...
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+order = self.db.OBTENER_UNO(
+    "SELECT id, cliente_id, tecnico_id, descripcion, estado, "
+    "equipo, modelo, observaciones, presupuesto_inicial, "
+    "costo_total_repuestos, costo_total_servicios, costo_envio, "
+    "descuento, total_a_cobrar, abono, saldo_pendiente FROM ordenes WHERE id = ?",
+    (self.order_id,)
+)
+
+# USAR TUPLA NOMBRADA O NAMED QUERY (MEJOR PRACTICA):
+presupuesto = order['presupuesto_inicial']  # Nombre en lugar de índice
+abono = order['abono']  # Nombre en lugar de índice
+saldo = order['saldo_pendiente']  # Leer de BD, no calcular
+
+# O SI USAS INDICES (MENOS SEGURO):
+# presupuesto = order[8]   # presupuesto_inicial
+# abono = order[14]        # abono
+# saldo = order[15]        # saldo_pendiente (NO CALCULAR)
+
+ALTERNATIVA MEJOR - USAR DICCIONARIOS:
+───────────────────────────────────────
+En lugar de tuplas indexadas, retornar diccionarios:
+
+def OBTENER_ORDEN_DICCIONARIO(self, orden_id):
+    cursor = self.db.sqlite_conn.cursor()
+    cursor.row_factory = sqlite3.Row  # Retorna diccionarios
+    cursor.execute("SELECT * FROM ordenes WHERE id = ?", (orden_id,))
+    return cursor.fetchone()
+
+order = self.db.OBTENER_ORDEN_DICCIONARIO(self.order_id)
+
+# Ahora acceso por nombre:
+presupuesto = order['presupuesto_inicial']  # Claro y seguro
+abono = order['abono']
+saldo = order['saldo_pendiente']  # NO calcular
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear orden de prueba
+2. Abrir en workshop
+3. Verificar pantalla muestra:
+   - Presupuesto Inicial: $XXXXX
+   - Abono: $XXXXX
+   - Saldo Pendiente: $XXXXX (automático)
+4. Datos deben coincidir con BD (no cálculos manuales)
+
+================================================================================
+CAMBIO ALTA #1: prediccion_logic.py - Cambiar columna fecha (5 ubicaciones)
+================================================================================
+
+UBICACION: prediccion_logic.py, líneas 29, 104, 158, 204, 270
+PROBLEMA: Usa columna 'fecha' que ahora se llama 'fecha_entrada'
+IMPACTO: Predicción de tendencias no funciona
+
+CODIGO ACTUAL (PROBLEMA):
+─────────────────────────
+Línea 29:
+    SELECT DATE(fecha), SUM(presupuesto) 
+    FROM ordenes 
+    WHERE DATE(fecha) >= ?
+
+Línea 104:
+    SELECT * FROM ordenes WHERE DATE(fecha) BETWEEN ? AND ?
+
+Línea 158:
+    GROUP BY DATE(fecha)
+
+Línea 204:
+    ORDER BY fecha DESC
+
+Línea 270:
+    WHERE fecha >= DATE('now', '-30 days')
+
+CODIGO NUEVO (SOLUCIÓN):
+────────────────────────
+Reemplazar 'fecha' con 'fecha_entrada' en TODOS estos 5 casos:
+
+Línea 29:
+    SELECT DATE(fecha_entrada), SUM(presupuesto_inicial) 
+    FROM ordenes 
+    WHERE DATE(fecha_entrada) >= ?
+
+Línea 104:
+    SELECT * FROM ordenes WHERE DATE(fecha_entrada) BETWEEN ? AND ?
+
+Línea 158:
+    GROUP BY DATE(fecha_entrada)
+
+Línea 204:
+    ORDER BY fecha_entrada DESC
+
+Línea 270:
+    WHERE fecha_entrada >= DATE('now', '-30 days')
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear 5 órdenes en fechas diferentes (últimos 30 días)
+2. Ejecutar predicción_logic.py
+3. Verificar: Tendencia muestra órdenes correctas
+
+================================================================================
+CAMBIO ALTA #2: ui/cash.py - SELECT FROM finanzas (2 ubicaciones)
+================================================================================
+
+UBICACION: ui/cash.py, líneas 117-121, 299
+PROBLEMA: Intenta obtener datos de tabla finanzas que no existe
+IMPACTO: Cash drawer no puede cerrar ni mostrar totales
+
+UBICACION 1 - Línea 117-121:
+────────────────────────────
+
+CODIGO ACTUAL (PROBLEMA):
+    cursor.execute("""
+        SELECT SUM(monto_efectivo), SUM(monto_transferencia)
+        FROM finanzas
+        WHERE fecha_cierre >= ? AND fecha_cierre <= ?
+    """, (fecha_inicio, fecha_fin))
+
+CODIGO NUEVO (SOLUCIÓN):
+    cursor.execute("""
+        SELECT SUM(pago_efectivo), SUM(pago_transferencia)
+        FROM ordenes
+        WHERE DATE(fecha_cierre) >= ? AND DATE(fecha_cierre) <= ? AND fecha_cierre IS NOT NULL
+    """, (fecha_inicio, fecha_fin))
+
+UBICACION 2 - Línea 299:
+────────────────────────
+
+CODIGO ACTUAL (PROBLEMA):
+    total_efectivo = cursor.execute(
+        "SELECT SUM(monto_efectivo) FROM finanzas WHERE fecha_cierre = ?"
+    ).fetchone()[0]
+
+CODIGO NUEVO (SOLUCIÓN):
+    total_efectivo = cursor.execute(
+        "SELECT SUM(pago_efectivo) FROM ordenes WHERE DATE(fecha_cierre) = ?"
+    ).fetchone()[0]
+
+CAMPOS CORRESPONDIENTES:
+───────────────────────
+finanzas.monto_efectivo → ordenes.pago_efectivo
+finanzas.monto_transferencia → ordenes.pago_transferencia
+finanzas.monto_debito → ordenes.pago_debito
+finanzas.monto_credito → ordenes.pago_credito
+finanzas.fecha_cierre → ordenes.fecha_cierre
+
+TESTING REQUERIDO:
+──────────────────
+1. Crear 3 órdenes cerradas con pagos diferentes:
+   - Orden 1: $100 efectivo + $200 tarjeta
+   - Orden 2: $150 transferencia
+   - Orden 3: $500 efectivo
+2. Ejecutar Cash Close
+3. Verificar totales:
+   - Efectivo total: $600
+   - Transferencia total: $150
+   - Tarjeta total: $200
+
+================================================================================
+CAMBIO MEDIA #1: database.py - Eliminar tabla finanzas
+================================================================================
+
+UBICACION: database.py, línea 181-200 (aprox)
+PROBLEMA: Define tabla finanzas que ya no debe crearse
+IMPACTO: No bloquea pero confunde estructura
+
+CODIGO A ELIMINAR:
+──────────────────
+CREATE TABLE IF NOT EXISTS finanzas (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    orden_id INTEGER NOT NULL UNIQUE,
+    total_cobrado REAL DEFAULT 0,
+    costo_repuesto REAL DEFAULT 0,
+    costo_envio REAL DEFAULT 0,
+    monto_efectivo REAL DEFAULT 0,
+    monto_transferencia REAL DEFAULT 0,
+    monto_debito REAL DEFAULT 0,
+    monto_credito REAL DEFAULT 0,
+    aplicó_iva INTEGER DEFAULT 0,
+    utilidad_real REAL,
+    monto_comision_tecnico REAL DEFAULT 0,
+    fecha_cierre TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (orden_id) REFERENCES ordenes(id) ON DELETE CASCADE
+);
+
+ACCION: COMENTAR ESTAS LINEAS O ELIMINARLAS COMPLETAMENTE
+
+VERIFICAR:
+──────────
+Después de eliminar, asegurar que database.py NO intenta crear finanzas
+
+================================================================================
+FIN DE ESPECIFICACIONES
+================================================================================

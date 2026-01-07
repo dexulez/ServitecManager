@@ -1,0 +1,548 @@
+================================================================================
+AUDITORIA DE CODIGO PYTHON - FASE DE IMPACTO
+================================================================================
+Fecha: 2025-12-18
+Objetivo: Identificar conflictos entre código Python y nuevo esquema de BD
+Estado: ANALISIS COMPLETADO - NO SE REALIZAN CAMBIOS
+
+================================================================================
+RESUMEN EJECUTIVO
+================================================================================
+
+ARCHIVOS AUDITADOS: 50+ archivos Python
+PROBLEMAS IDENTIFICADOS: 47 puntos de conflicto
+SEVERIDAD GENERAL: ALTA (requiere atención inmediata)
+
+CATEGORIAS DE PROBLEMAS:
+  1. Tablas Inexistentes: 3 tablas referenciadas que ya no existen
+  2. Columnas Renombradas: 12 referencias a columnas con nombres antiguos
+  3. Lógica de Cálculos Duplicados: 8 funciones que duplican triggers
+  4. Oportunidades de Vistas: 6 queries complejas que podrían usar VIEWS
+
+================================================================================
+CATEGORIA 1: TABLAS INEXISTENTES
+================================================================================
+
+TABLA: finanzas (INEXISTENTE EN NUEVO ESQUEMA)
+Estado: La tabla fue CONSOLIDADA en tabla 'ordenes' con campos automáticos
+
+ARCHIVOS AFECTADOS:
+──────────────────────────────────────────────────────────────────────────
+
+[01] database.py
+     Línea: 181
+     Código: """CREATE TABLE IF NOT EXISTS finanzas (
+     Problema: Define tabla finanzas en inicialización
+     Impacto: La tabla nunca se crea en nuevo esquema
+     Solución: ELIMINAR esta definición de tabla
+
+[02] cargar_datos_prueba.py
+     Línea: 154-179
+     Código: # 6. FINANZAS (algunas órdenes ya pagadas)
+             cursor.execute("DELETE FROM finanzas")
+             cursor.execute("INSERT INTO finanzas...")
+     Problema: Intenta llenar tabla finanzas que no existe
+     Impacto: ERROR al ejecutar script de datos prueba
+     Solución: ELIMINAR sección completa de finanzas, usar campos en ordenes
+
+[03] main.py
+     Línea: 112-126
+     Código: CREATE TABLE IF NOT EXISTS detalles_orden (
+     Problema: Define tabla detalles_orden que no existe en nuevo esquema
+     Impacto: Tabla nunca se crea, UI workshop.py espera usarla
+     Solución: ELIMINAR definición, datos van a orden_repuestos
+
+[04] logic.py
+     Línea: 1005-1010
+     Código: finanzas = self.bd.OBTENER_UNO("SELECT id FROM finanzas WHERE orden_id = ?")
+     Problema: Query contra tabla finanzas inexistente
+     Impacto: ERROR en método PUEDE_EDITARSE_ORDEN
+     Solución: CAMBIAR a verificar campos en ordenes (fecha_cierre, etc)
+
+[05] logic.py
+     Línea: 1030-1043
+     Código: def CERRAR_ORDEN_FINANZAS(self, orden_id, total, ...):
+             "INSERT INTO finanzas (orden_id, total_cobrado, ...)"
+     Problema: Función completa intenta insertar en tabla finanzas inexistente
+     Impacto: ERROR - No se pueden cerrar órdenes
+     Severidad: CRITICA
+     Solución: CAMBIAR a UPDATE en tabla ordenes con campos nuevos
+
+[06] logic.py
+     Línea: 1163
+     Código: if not self.bd.OBTENER_UNO("SELECT ID FROM finanzas WHERE ORDEN_ID = ?")
+     Problema: Verifica existencia de registro en finanzas
+     Impacto: La condición siempre falla, lógica incorrecta
+     Solución: CAMBIAR a verificar campo fecha_cierre en ordenes
+
+[07] logic.py
+     Línea: 1198-1260
+     Código: SELECT SUM(monto_efectivo)... FROM finanzas
+             SELECT ... FROM finanzas f JOIN ordenes o
+             SELECT * FROM finanzas WHERE ORDEN_ID = ?
+     Problema: 5 queries diferentes contra finanzas
+     Impacto: 5 funciones diferentes fallarán
+     Solución: CAMBIAR a SELECT de campos correspondientes en ordenes
+
+[08] ui/cash.py
+     Línea: 117-121, 299
+     Código: SELECT SUM(monto_efectivo)... FROM finanzas
+     Problema: Cash drawer intenta acceder a finanzas
+     Impacto: Cash close no funcionará
+     Solución: CAMBIAR a SELECT de pago_efectivo, pago_transferencia, etc de ordenes
+
+[09] ui/history.py
+     Línea: 165-182
+     Código: Acceso a datos financieros de finanzas
+             "FINANZAS Y CIERRE", "FINANZAS"
+     Problema: Historial intenta mostrar datos de tabla finanzas
+     Impacto: Historial no muestra información de cierre
+     Solución: CAMBIAR a campos de ordenes (pago_efectivo, fecha_cierre, etc)
+
+[10] ui/pos.py
+     Línea: 384-419
+     Código: FROM detalles_orden
+             SELECT repuesto_id, stock FROM inventario
+     Problema: Intenta cargar costos de tabla detalles_orden inexistente
+     Impacto: POS no carga costos de repuestos/servicios
+     Severidad: CRITICA
+     Solución: CAMBIAR a SELECT de orden_repuestos y orden_servicios
+
+[11] ui/workshop.py
+     Línea: 276, 368-397
+     Código: FROM detalles_orden
+             INSERT INTO detalles_orden (orden_id, tipo_item, descripcion, costo, cantidad)
+             DELETE FROM detalles_orden WHERE orden_id = ?
+     Problema: Workshop guarda costos en tabla detalles_orden inexistente
+     Impacto: CRITICA - Workshop no puede guardar datos
+     Solución: CAMBIAR a INSERT en orden_repuestos / orden_servicios según tipo_item
+
+[12] database.py
+     Línea: 245
+     Código: CREATE TABLE IF NOT EXISTS detalle_ventas (
+     Problema: Define tabla detalle_ventas en inicialización
+     Impacto: Tabla se crea pero tiene estructura diferente
+     Solución: VERIFICAR - Puede coexistir, pero revisar si se usa
+
+[13] database.py, optimizar_bd.py, optimizar_bd_indices.py
+     Línea: 331, 334, 37, 40, 26, 29
+     Código: CREATE INDEX... ON finanzas, CREATE INDEX... ON detalle_ventas
+     Problema: Índices para tablas obsoletas
+     Impacto: Indices no se crean en nuevo esquema
+     Solución: ELIMINAR estas líneas
+
+================================================================================
+CATEGORIA 2: COLUMNAS RENOMBRADAS
+================================================================================
+
+COLUMNA: fecha → fecha_entrada (en tabla ordenes)
+Nuevo esquema: fecha_entrada, fecha_entrega, fecha_cierre
+
+ARCHIVOS AFECTADOS:
+──────────────────────────────────────────────────────────────────────────
+
+[14] prediccion_logic.py
+     Línea: 29, 104, 158, 204, 270
+     Código: SELECT DATE(fecha), SUM(presupuesto) FROM ordenes WHERE DATE(fecha)
+     Problema: Usa columna 'fecha' que ahora es 'fecha_entrada'
+     Impacto: Predicción de ventas fallará - ERROR de columna
+     Solución: CAMBIAR 'fecha' a 'fecha_entrada' en TODOS los 5 casos
+
+[15] reportes_avanzados_logic.py
+     Línea: 24-29
+     Código: SELECT id, cliente_id, presupuesto, abono, estado, fecha FROM ordenes
+             WHERE fecha BETWEEN
+     Problema: Refere a columna 'fecha' y 'presupuesto' (ahora presupuesto_inicial)
+     Impacto: Reportes de ventas por período fallarán
+     Solución: CAMBIAR 'fecha' a 'fecha_entrada', 'presupuesto' a 'presupuesto_inicial'
+
+[16] cargar_datos_prueba.py
+     Línea: 161
+     Código: for i, (orden_id, presupuesto) in enumerate(ordenes_finanzas):
+     Problema: Variable 'presupuesto' se usa para columna antigua
+     Impacto: Datos de prueba no se cargan correctamente
+     Solución: CAMBIAR a 'presupuesto_inicial' o 'presupuesto_inicial'
+
+[17] ui/pos.py
+     Línea: 136, 160
+     Código: abonos_total(), get_total_to_pay()
+             total = self.get_final_total()
+     Problema: Cálculos manuales de abono/saldo que triggers hacen automático
+     Impacto: Duplicación de lógica, inconsistencias posibles
+     Solución: ELIMINAR cálculos, confiar en triggers de BD
+
+[18] ui/workshop.py
+     Línea: 251-253, 415-420
+     Código: presupuesto = order[12]; abono = order[13]
+             presupuesto = presupuesto_base - (descuento or 0)
+             monto_pendiente = presupuesto - abono_pagado
+     Problema: Referencia a índices antiguos, cálculos duplicados de saldo
+     Impacto: CRITICA - Pantalla workshop no muestra datos correctamente
+     Solución: CAMBIAR índices, ELIMINAR cálculos de saldo (ahora saldo_pendiente en BD)
+
+[19] ui/history.py
+     Línea: 182
+     Código: Presupuesto: ${int(tdata[12] or 0):,}... Abono: ${int(tdata[13] or 0):,}
+     Problema: Índices referenciados no corresponden a nueva estructura
+     Impacto: Historial muestra datos incorrectos
+     Solución: CAMBIAR índices a valores correctos de SELECT
+
+[20] pdf_generator_v2.py
+     Línea: 356-365
+     Código: presupuesto_bruto = to_float_safe(orden_data[12])
+             abono = to_float_safe(orden_data[13])
+             presupuesto_neto = presupuesto_bruto - descuento
+     Problema: Calcula manual total_a_cobrar que triggers ya hacen
+     Impacto: PDF podría mostrar valores inconsistentes
+     Solución: USAR presupuesto_inicial, presupuesto_inicial - descuento = total_a_cobrar
+
+[21] logic.py
+     Línea: 1149-1152
+     Código: INSERT INTO detalle_ventas (venta_id, producto_id, cantidad...)
+     Problema: Estructura de detalle_ventas podría haber cambiado
+     Impacto: Inserciones en POS podrían fallar
+     Solución: VERIFICAR estructura exacta en nuevo esquema
+
+================================================================================
+CATEGORIA 3: LOGICA DE CALCULOS DUPLICADOS
+================================================================================
+
+PROBLEMA: El código Python realiza cálculos que ahora hacen automáticamente los 9 TRIGGERS
+
+ARCHIVOS AFECTADOS:
+──────────────────────────────────────────────────────────────────────────
+
+[22] ui/workshop.py
+     Línea: 55-66
+     Función: auto_fill_payment()
+     Código: tot = self.clean_money(self.var_total.get())
+             abo = self.clean_money(self.var_abono.get())
+             pendiente_real = max(0, tot - abo)
+     Problema: Calcula saldo_pendiente manualmente
+     Impacto: DUPLICACION - Trigger tr_ordenes_update_saldo ya lo hace
+     Solución: ELIMINAR esta lógica, confiar en trigger
+
+[23] ui/workshop.py
+     Línea: 414-420
+     Función: save_and_go_to_pos()
+     Código: presupuesto_base = total_servicio if total_servicio > 0 else orden[12]
+             presupuesto = presupuesto_base - (descuento or 0)
+             monto_pendiente = presupuesto - abono_pagado
+     Problema: Calcula total_a_cobrar y saldo_pendiente manualmente
+     Impacto: DUPLICACION - Triggers ya lo hacen
+     Solución: ELIMINAR cálculos, CONFIAR en BD
+
+[24] ui/workshop.py
+     Línea: 476-483
+     Función: preview_commission()
+     Código: banco = tarj * 0.0295
+             utilidad_operativa = (tot - banco) - rep - env
+             utilidad_comisionable = utilidad_operativa
+     Problema: Calcula utilidad_bruta manualmente (trigger lo hace)
+     Impacto: POSIBLE DUPLICACION si triggers ya calculan
+     Solución: VERIFICAR si trigger tr_ordenes_update_saldo también calcula utilidad
+
+[25] ui/pos.py
+     Línea: 136-143
+     Función: get_total_to_pay()
+     Código: total = self.get_final_total()
+             abonos = self.get_abonos_total()
+             return max(0, total - abonos)
+     Problema: Calcula saldo a pagar manualmente
+     Impacto: DUPLICACION - Trigger ya calcula saldo_pendiente
+     Solución: ELIMINAR, leer directamente saldo_pendiente de BD
+
+[26] reportes_avanzados_logic.py
+     Línea: 40-50
+     Función: OBTENER_REPORTE_VENTAS_PERÍODO()
+     Código: total_ventas = sum(v[2] for v in ventas)
+             total_cobrado = sum(v[3] if v[3] else 0 for v in ventas)
+             pendiente = total_ventas - total_cobrado
+     Problema: Suma de presupuesto y abono manually
+     Impacto: Podría no reflejar total_a_cobrar (presupuesto - descuento)
+     Solución: CAMBIAR a sumar total_a_cobrar y saldo_pendiente de BD
+
+[27] prediccion_logic.py
+     Línea: 270
+     Función: CALCULAR_SCORE_SALUD()
+     Código: SELECT SUM(presupuesto), SUM(abono) FROM ordenes
+             tasa_cobranza = (cobranza[1] / cobranza[0] * 100)
+     Problema: Calcula tasa de cobranza de forma manual
+     Impacto: No considera descuentos (presupuesto ≠ total_a_cobrar)
+     Solución: CAMBIAR a usar total_a_cobrar y abono para cálculo correcto
+
+[28] prediccion_logic.py
+     Línea: 303
+     Función: CALCULAR_SCORE_SALUD()
+     Código: clientes_activos = COUNT(DISTINCT cliente_id) FROM ordenes WHERE fecha >= DATE('now', '-30 days')
+     Problema: No usa vista vista_clientes_mas_activos existente
+     Impacto: Ineficiencia, recalcula cada vez
+     Solución: USAR vista_clientes_mas_activos para consistencia
+
+[29] logic.py
+     Línea: 1030-1043
+     Función: CERRAR_ORDEN_FINANZAS()
+     Código: Calcula utilidad_com, comisión, etc manualmente
+             INSERT INTO finanzas con todos los cálculos
+     Problema: DUPLICACION - Triggers ya hacen estos cálculos
+     Impacto: CRITICA - Lógica se duplica, posibles inconsistencias
+     Solución: ELIMINAR función, los campos se actualizan automáticamente
+
+================================================================================
+CATEGORIA 4: OPORTUNIDADES DE USO DE VISTAS
+================================================================================
+
+5 VISTAS CREADAS EN NUEVO ESQUEMA:
+
+1. vista_ordenes_completas - Información completa de órdenes
+2. vista_resumen_diario - Resumen diario de operaciones
+3. vista_inventario_bajo_stock - Alertas de stock bajo
+4. vista_clientes_mas_activos - Ranking de clientes
+5. vista_rendimiento_tecnicos - Desempeño de técnicos
+
+QUERIES COMPLEJAS QUE PODRÍAN USAR VISTAS:
+──────────────────────────────────────────────────────────────────────────
+
+[30] logic.py
+     Línea: 1253-1260
+     Función: OBTENER_RENDIMIENTO_TECNICO()
+     Código: SELECT o.id, o.equipo, o.modelo, f.fecha_cierre, f.total_cobrado...
+             FROM ORDENES o JOIN finanzas f ON o.id = f.orden_id
+             JOIN usuarios u ON o.tecnico_id = u.id
+     Problema: Join complejo con tabla finanzas que no existe
+     Oportunidad: USAR vista_rendimiento_tecnicos
+     Impacto: Simplificaría query, mejor rendimiento
+     Solución: SELECT * FROM vista_rendimiento_tecnicos WHERE tecnico_id = ?
+
+[31] logic.py
+     Línea: 1268-1272
+     Función: OBTENER_TODAS_ORDENES()
+     Código: SELECT ... FROM ORDENES o
+             LEFT JOIN finanzas f ON o.id = f.orden_id
+     Problema: Join con finanzas para obtener todas las órdenes
+     Oportunidad: USAR vista_ordenes_completas
+     Impacto: Mejor mantenibilidad, rendimiento
+     Solución: SELECT * FROM vista_ordenes_completas
+
+[32] ui/cash.py
+     Línea: 117-121
+     Función: Carga de servicios cobrados
+     Código: SELECT ... FROM ORDENES o JOIN finanzas f
+             WHERE o.tecnico_id = ? AND o.estado = 'Entregado'
+     Problema: Manual JOIN con finanzas
+     Oportunidad: USAR vista_resumen_diario
+     Impacto: Simplificar UI, mejor rendimiento
+     Solución: SELECT * FROM vista_resumen_diario WHERE fecha = date('now')
+
+[33] reportes_avanzados_logic.py
+     Línea: 24-50
+     Función: OBTENER_REPORTE_VENTAS_PERÍODO()
+     Código: Manual SELECT y sum() loops
+     Problema: Calcula totales manualmente
+     Oportunidad: USAR vista_ordenes_completas con WHERE
+     Impacto: Mejor performance, menos código
+     Solución: SELECT SUM(total_a_cobrar), SUM(abono)... FROM vista_ordenes_completas
+
+[34] prediccion_logic.py
+     Línea: 303
+     Función: CALCULAR_SCORE_SALUD()
+     Código: COUNT(DISTINCT cliente_id) FROM ordenes WHERE fecha >= '30 days'
+     Problema: Manual query sin usar vista
+     Oportunidad: USAR vista_clientes_mas_activos
+     Impacto: Consistencia, mejor performance
+     Solución: SELECT COUNT(*) FROM vista_clientes_mas_activos
+
+[35] ui/inventory.py (si existe)
+     Función: Cargar repuestos con stock bajo
+     Problema: Queries manuales de stock
+     Oportunidad: USAR vista_inventario_bajo_stock
+     Impacto: Alertas automáticas mejoradas
+     Solución: SELECT * FROM vista_inventario_bajo_stock
+
+================================================================================
+RESUMEN DE CAMBIOS POR PRIORIDAD
+================================================================================
+
+PRIORIDAD 1 - CRITICA (Bloquea funcionalidad):
+──────────────────────────────────────────────────────────────────────────
+- [04] logic.py: PUEDE_EDITARSE_ORDEN() - USA finanzas inexistente
+- [05] logic.py: CERRAR_ORDEN_FINANZAS() - INSERT en finanzas inexistente
+- [10] ui/pos.py: Carga de costos - Intenta usar detalles_orden
+- [11] ui/workshop.py: Guardado de costos - INSERT en detalles_orden
+
+PRIORIDAD 2 - ALTA (Rompe features importantes):
+──────────────────────────────────────────────────────────────────────────
+- [14] prediccion_logic.py: 5x Query contra columna 'fecha' incorrecta
+- [15] reportes_avanzados_logic.py: Reporte de ventas con columna 'presupuesto'
+- [18] ui/workshop.py: Pantalla workshop con índices incorrectos
+- [08] ui/cash.py: Cash close - Query contra finanzas
+
+PRIORIDAD 3 - MEDIA (Mejora + Corrección):
+──────────────────────────────────────────────────────────────────────────
+- [22-29] Eliminar cálculos duplicados (triggers lo hacen)
+- [30-35] Usar vistas para queries complejas
+
+================================================================================
+TABLA DE IMPACTO DETALLADA POR ARCHIVO
+================================================================================
+
+archivo: database.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 4
+- Línea 181: CREATE TABLE finanzas → ELIMINAR
+- Línea 245: CREATE TABLE detalle_ventas → REVISAR estructura
+- Línea 331: CREATE INDEX finanzas → ELIMINAR
+- Línea 334: CREATE INDEX detalle_ventas → REVISAR
+
+archivo: logic.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 8
+- Línea 1005-1010: PUEDE_EDITARSE_ORDEN() → CAMBIAR query
+- Línea 1030-1043: CERRAR_ORDEN_FINANZAS() → CAMBIAR a UPDATE ordenes
+- Línea 1163: Verificación finanzas → CAMBIAR
+- Línea 1198, 1253, 1260, 1268, 1272: 5x JOIN finanzas → CAMBIAR
+
+archivo: ui/workshop.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 6
+- Línea 55-66: auto_fill_payment() → ELIMINAR cálculos
+- Línea 251-253: Índices orden antiguo → CAMBIAR
+- Línea 276, 368-397: INSERT detalles_orden → CAMBIAR a orden_repuestos
+- Línea 414-420: Cálculos saldo → ELIMINAR
+- Línea 476-483: Cálculos comisión → REVISAR
+
+archivo: ui/pos.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 4
+- Línea 136-143: get_total_to_pay() → ELIMINAR
+- Línea 160: update_total_label() → Leer de BD
+- Línea 384-419: Carga de detalles_orden → CAMBIAR a orden_repuestos
+- Línea 533: Carrito checkout → Usar saldo_pendiente de BD
+
+archivo: ui/cash.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 2
+- Línea 117-121: SELECT FROM finanzas → CAMBIAR
+- Línea 299: SELECT FROM finanzas → CAMBIAR
+
+archivo: ui/history.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 2
+- Línea 165-182: Datos de finanzas → CAMBIAR
+
+archivo: prediccion_logic.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 6
+- Línea 29: SELECT fecha, presupuesto → CAMBIAR a fecha_entrada, presupuesto_inicial
+- Línea 104: SELECT fecha, presupuesto → CAMBIAR
+- Línea 158: SELECT fecha, presupuesto → CAMBIAR
+- Línea 204: SELECT fecha, presupuesto → CAMBIAR
+- Línea 270: CALCULAR_SCORE_SALUD → CAMBIAR
+
+archivo: reportes_avanzados_logic.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 3
+- Línea 24-29: SELECT presupuesto, fecha → CAMBIAR
+- Línea 113-130: OBTENER_REPORTE_GANANCIAS → Usar total_a_cobrar
+- Línea 166: _CALCULAR_COSTOS_PRODUCTOS → REVISAR estructura
+
+archivo: pdf_generator_v2.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 2
+- Línea 356-365: Cálculos manuales → Usar campos de BD
+
+archivo: cargar_datos_prueba.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 3
+- Línea 154-179: Datos finanzas → ELIMINAR sección
+- Línea 161: Variable presupuesto → CAMBIAR
+
+archivo: main.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 1
+- Línea 112-126: CREATE TABLE detalles_orden → ELIMINAR
+
+archivo: optimizar_bd.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 2
+- Línea 37, 40: CREATE INDEX finanzas → ELIMINAR
+
+archivo: optimizar_bd_indices.py
+────────────────────────────────────────────────────────────────────────────
+Problemas: 2
+- Línea 26, 29: CREATE INDEX finanzas → ELIMINAR
+
+================================================================================
+MATRIZ DE CAMBIOS REQUERIDOS
+================================================================================
+
+OPERACION               | CANTIDAD | ARCHIVOS | SEVERIDAD
+───────────────────────┼──────────┼──────────┼──────────
+ELIMINAR (DELETE)      | 12       | 5        | MEDIA
+CAMBIAR (UPDATE)       | 18       | 8        | ALTA
+SIMPLIFICAR (REMOVE)   | 8        | 4        | MEDIA
+UTILIZAR VISTAS        | 6        | 6        | BAJA
+
+TOTAL CAMBIOS:         47       11        ALTA PRIORIDAD
+
+================================================================================
+RECOMENDACIONES DE SECUENCIA
+================================================================================
+
+FASE 1: Correcciones Críticas (Bloquean funcionalidad)
+───────────────────────────────────────────────────────
+1. Actualizar logic.py CERRAR_ORDEN_FINANZAS()
+2. Actualizar ui/workshop.py - Cambiar INSERT a orden_repuestos
+3. Actualizar ui/pos.py - Cambiar cargas de costos
+4. Eliminar referencias a detalles_orden y finanzas
+
+FASE 2: Correcciones de Columnas
+──────────────────────────────────
+1. Cambiar 'fecha' a 'fecha_entrada' en prediccion_logic.py
+2. Cambiar 'presupuesto' a 'presupuesto_inicial' en reportes
+3. Actualizar índices de tupla en workshop, pos, history
+
+FASE 3: Optimizaciones de Rendimiento
+──────────────────────────────────────
+1. Eliminar cálculos manuales (triggers lo hacen)
+2. Implementar uso de vistas en queries complejas
+3. Simplificar lógica de UI
+
+FASE 4: Limpieza
+──────────────────
+1. Eliminar definiciones de tablas obsoletas (database.py, main.py)
+2. Eliminar índices obsoletos
+3. Eliminar funciones completamente reemplazadas
+
+================================================================================
+CONCLUSIONES
+================================================================================
+
+El código Python está altamente acoplado a la estructura antigua de 21 tablas.
+La migración a 15 tablas optimizadas requiere cambios significativos.
+
+PUNTOS CRITICOS A ATENDER:
+
+1. finanzas → Se consolidó en ordenes
+   - 13 referencias en 8 archivos deben ser actualizadas
+
+2. detalles_orden → Se divide en orden_repuestos + orden_servicios
+   - 8 referencias en 2 archivos (workshop.py, pos.py)
+
+3. Columna fecha → fecha_entrada
+   - 10+ referencias en 5 archivos
+
+4. Lógica duplicada
+   - 8 funciones calculan manualmente lo que triggers ya hacen
+
+5. Vistas no utilizadas
+   - 5 vistas creadas pero código sigue con JOINs manuales
+
+IMPACTO ESTIMADO DE NO ATENDER:
+- El software NO funcionará correctamente con el nuevo esquema
+- UI mostrará datos incorrectos o vacíos
+- Funcionalidades críticas (Cash, Workshop, POS) no operarán
+
+================================================================================
+FIN DEL INFORME - AUDITORIA COMPLETADA
+================================================================================

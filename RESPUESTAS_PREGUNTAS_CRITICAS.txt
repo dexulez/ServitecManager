@@ -1,0 +1,144 @@
+================================================================================
+                RESPUESTAS A PREGUNTAS CRÍTICAS - ANÁLISIS FASE 1
+================================================================================
+
+📋 MIS 5 PREGUNTAS CRÍTICAS → RESPUESTAS BASADAS EN DATOS
+
+================================================================================
+PREGUNTA 1: ¿Los nombres en descripcion siguen algún patrón?
+================================================================================
+
+RESPUESTA: SÍ, pero NO como imaginábamos
+
+Patrón REAL en repuestos:
+  - Incluyen marca: "SAMSUNG"
+  - Incluyen modelo: "A34", "A21", "A54"
+  - Pueden incluir tipo: "ORIG" (original)
+  - Separados por espacios
+
+Ejemplos de catálogo actual:
+  ✓ "PANTALLA A34"
+  ✓ "PANTALLA SAMSUNG A21 ORIG"
+  ✓ "PANTALLA SAMSUNG A34 ORIG"
+  ✓ "PANTALLA SAMSUNG A54"
+
+Lo IMPORTANTE: Estos patrones solo aplican PARA FUTURO
+  Datos históricos en detalles_orden = VACÍOS (0 registros)
+
+
+================================================================================
+PREGUNTA 2: ¿Hay repuestos repetidos con nombres ligeramente diferentes?
+================================================================================
+
+RESPUESTA: POSIBLEMENTE (con datos limitados no se puede confirmar)
+
+Datos de prueba actuales sugieren sí:
+  - "PANTALLA A34" (ID 1)
+  - "PANTALLA SAMSUNG A34 ORIG" (ID 3)
+  
+Estas PODRÍAN ser:
+  - Mismo repuesto, dos variantes
+  - Repuestos distintos (original vs aftermarket)
+  - Resultado de duplicación por error
+
+IMPLICACIÓN PARA MIGRACIÓN:
+  No aplica a datos históricos (detalles_orden está vacía)
+  Sí será importante para usuario limpiez catálogo (pero es trabajo manual)
+
+
+================================================================================
+PREGUNTA 3: ¿Existe ya algún mapeo manual en el código actual?
+================================================================================
+
+RESPUESTA: NO
+
+Análisis de código:
+  ✓ Revisé workshop.py, reception.py, logic.py
+  ✓ Busqué inserciones en detalles_orden
+  ✓ Busqué referencias a repuesto_id
+  ✓ Busqué mapeos en diccionarios
+
+RESULTADO:
+  No hay código que mapee descripción → repuesto_id
+  No hay diccionario de conversiones
+  No hay tabla de mapeos
+
+
+================================================================================
+PREGUNTA 4: ¿Cómo se agregan repuestos a una orden actualmente?
+================================================================================
+
+RESPUESTA: WORKFLOW ACTUAL
+
+Paso 1: Reception.py
+  - Usuario selecciona cliente
+  - Ingresa datos del equipo
+  - Selecciona técnico
+  - Crea orden
+
+Paso 2: Workshop.py (línea 350-391)
+  - Técnico ingresa costo_repuesto (número)
+  - Técnico ingresa costo_envio (número)
+  - Al guardar, inserta en detalles_orden:
+    * tipo_item = 'REPUESTO' o 'ENVIO'
+    * descripcion = 'Costo de Repuestos' (genérico)
+    * costo = valor numérico ingresado
+    * cantidad = 1
+
+Paso 3: POS (not shown pero referenced)
+  - Lee detalles_orden
+  - Cobra el monto total
+  - Cierra la orden
+
+CONCLUSIÓN: Los repuestos se registran como COSTOS, no como ITEMS
+
+
+================================================================================
+PREGUNTA 5: ¿El sistema actual permite vender repuestos como productos?
+================================================================================
+
+RESPUESTA: PARCIALMENTE
+
+Si, porque existe:
+  ✓ Tabla repuestos con precios
+  ✓ Tabla inventario (aunque vacía)
+  ✓ Tabla ventas y detalle_ventas
+  ✓ Interfaz POS
+
+Pero no está integrado:
+  ✗ Workshop guarda costos, no referencias de repuestos
+  ✗ No hay flujo automático "repuesto en orden → repuesto vendido"
+  ✗ No hay descuento de inventario automático
+
+Es un sistema en TRANSICIÓN:
+  - Puede venderse manualmente desde POS
+  - Pero no está integrado con el sistema de órdenes de reparación
+
+
+================================================================================
+                        CONCLUSIÓN DEL ANÁLISIS
+================================================================================
+
+PROBLEMA IDENTIFICADO CORRECTAMENTE:
+  ✓ Existe redundancia financiera (ordenes + finanzas)
+  ✓ Existe fragmentación (no hay trazabilidad de repuestos)
+  ✓ Existe complejidad (21 tablas con relaciones confusas)
+
+SORPRESA POSITIVA:
+  ✓ No hay "repuestos huérfanos" en datos históricos
+  ✓ detalles_orden es más simple que esperábamos
+  ✓ Migración es MÁS SIMPLE que lo previsto
+
+IMPLICACIÓN:
+  ✓ Plan de migración se puede acelerar
+  ✓ Menos complejidad en manejo de datos
+  ✓ Validación más rápida
+
+
+RECOMENDACIÓN FINAL:
+  Proceder con PASO 2: Crear herramientas de migración
+  
+  Estimado: 6-8 horas en lugar de 11-15 horas
+
+
+================================================================================

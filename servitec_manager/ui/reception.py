@@ -1397,7 +1397,7 @@ class ReceptionFrame(ctk.CTkFrame):
                 marca = o[5].upper() if o[5] else "N/A"   # Marca
                 modelo = o[6].upper() if o[6] else "N/A"  # Modelo
                 serie = o[7].upper() if o[7] else "S/N"   # Serial
-                estado = o[10] if o[10] else "PENDIENTE"  # Estado
+                estado = o[9] if o[9] else "PENDIENTE"  # Estado
                 
                 # Extraer solo la falla sin el prefijo "FALLA:"
                 falla_completa = o[8] if o[8] else "SIN DESCRIPCIÓN"
@@ -1468,19 +1468,59 @@ class ReceptionFrame(ctk.CTkFrame):
                              command=lambda oid=order_id: self.view_ticket_modal(oid)).pack(side="right", padx=2, pady=2)
 
     def view_ticket_modal(self, order_id):
+        print(f"\n[RECEPTION] Abriendo modal de visualización para orden #{order_id}")
         data = self.logic.orders.get_ticket_data(order_id); 
-        if not data: return
-        win = ctk.CTkToplevel(self); win.title(f"ORDEN #{order_id}"); win.geometry("500x600"); win.attributes("-topmost", True)
+        if not data:
+            print(f"[RECEPTION] ❌ Error: No se pudieron obtener datos de orden #{order_id}")
+            return
+        
+        print(f"[RECEPTION] Datos obtenidos correctamente (longitud: {len(data)})")
+        
+        win = ctk.CTkToplevel(self); win.title(f"ORDEN #{order_id}"); win.geometry("500x700"); win.attributes("-topmost", True)
         # Centrar ventana
         win.update_idletasks()
         x = (win.winfo_screenwidth() // 2) - (500 // 2)
-        y = (win.winfo_screenheight() // 2) - (600 // 2)
-        win.geometry(f"500x600+{x}+{y}")
+        y = (win.winfo_screenheight() // 2) - (700 // 2)
+        win.geometry(f"500x700+{x}+{y}")
         ctk.CTkLabel(win, text=f"DETALLE DE ORDEN #{order_id}", font=("Arial", 16, "bold")).pack(pady=20)
         info = f"FECHA: {data[3]}\n\nEQUIPO: {data[4]} {data[5]} {data[6]}\n\nCLIENTE: {data[18]}\n\nFALLA:\n{data[8]}\n\nTOTAL: {self.format_money_val(data[12])}"
         txt = ctk.CTkTextbox(win, height=250); txt.pack(fill="both", padx=20, pady=10); txt.insert("0.0", info)
-        def print_ticket(): pdf = PDFGeneratorV2(self.logic); filepath = pdf.generar_orden_ingreso(data); pdf.abrir_pdf(filepath); win.destroy()
-        ctk.CTkButton(win, text="🖨️ RE-IMPRIMIR TICKET", command=print_ticket, height=50, font=("Arial", 14, "bold")).pack(pady=20, padx=20, fill="x")
+        
+        # Frame para botones
+        btn_frame = ctk.CTkFrame(win, fg_color="transparent")
+        btn_frame.pack(pady=20, padx=20, fill="x")
+        
+        def print_ticket():
+            print(f"[RECEPTION] Re-imprimiendo ticket para orden #{order_id}")
+            pdf = PDFGeneratorV2(self.logic)
+            filepath = pdf.generar_orden_ingreso(data)
+            if filepath:
+                print(f"[RECEPTION] PDF generado, intentando abrir...")
+                exito = pdf.abrir_pdf(filepath)
+                if not exito:
+                    print(f"[RECEPTION] ⚠️ No se pudo abrir automáticamente")
+                    messagebox.showwarning("PDF Generado", f"El PDF se generó en:\n{filepath}")
+            else:
+                print(f"[RECEPTION] ❌ Error al generar PDF")
+                messagebox.showerror("Error", "No se pudo generar el PDF.")
+            win.destroy()
+        
+        def edit_order():
+            win.destroy()
+            self.load_order_for_edit(order_id)
+        
+        # Botón Reimprimir
+        ctk.CTkButton(btn_frame, text="🖨️ REIMPRIMIR COMPROBANTE", command=print_ticket, 
+                     height=50, font=("Arial", 14, "bold"), fg_color="#007bff", hover_color="#0056b3").pack(pady=5, fill="x")
+        
+        # Botón Editar (solo si la orden se puede editar)
+        if self.logic.orders.can_edit_order(order_id):
+            ctk.CTkButton(btn_frame, text="✏️ EDITAR ORDEN", command=edit_order, 
+                         height=50, font=("Arial", 14, "bold"), fg_color="#F39C12", hover_color="#E67E22").pack(pady=5, fill="x")
+        
+        # Botón Cerrar
+        ctk.CTkButton(btn_frame, text="❌ CERRAR", command=win.destroy, 
+                     height=40, font=("Arial", 12, "bold"), fg_color="gray50", hover_color="gray40").pack(pady=5, fill="x")
 
     def load_order_for_edit(self, order_id):
         """Carga los datos de una orden existente para editarla"""
@@ -1499,25 +1539,26 @@ class ReceptionFrame(ctk.CTkFrame):
         self.editing_order_id = order_id
         self.btn_generate_order.configure(text=f"ACTUALIZAR ORDEN #{order_id}")
         
-        # Cargar datos del cliente (índices del query: o.*, c.rut, c.nombre, c.telefono, c.email)
-        # ordenes tiene 16 columnas (0-15) con descuento, entonces: [16]=rut, [17]=nombre, [18]=telefono, [19]=email
-        self.var_rut.set(order_data[16])
-        self.var_name.set(order_data[17])
-        self.var_tel.set(order_data[18] if order_data[18] else "")
-        self.var_email.set(order_data[19] if order_data[19] else "")
-        self.selected_client_rut = order_data[17]
+        # Cargar datos del cliente (índices del query: o.*, c.cedula, c.nombre, c.telefono, c.email)
+        # ordenes tiene 30 columnas (0-29), entonces: [30]=cedula, [31]=nombre, [32]=telefono, [33]=email
+        self.var_rut.set(order_data[30])
+        self.var_name.set(order_data[31])
+        self.var_tel.set(order_data[32] if order_data[32] else "")
+        self.var_email.set(order_data[33] if order_data[33] else "")
+        self.selected_client_rut = order_data[30]
         
         # Cargar datos del equipo
-        # [4]=equipo, [5]=marca, [6]=modelo, [7]=serie, [8]=observacion, [10]=accesorios, [11]=riesgoso, [12]=presupuesto, [13]=abono
-        self.combo_type.set(order_data[4])
-        self.on_brand_change(order_data[5])  # Cargar modelos de la marca
-        self.combo_brand.set(order_data[5])
-        self.combo_model.set(order_data[6])
-        self.var_model.set(order_data[6])
-        self.var_serial.set(order_data[7])
+        # [5]=equipo, [6]=marca, [7]=modelo, [8]=serie, [9]=observacion, [10]=accesorios, [11]=riesgoso
+        # [14]=presupuesto_inicial, [18]=descuento, [20]=abono
+        self.combo_type.set(order_data[5])
+        self.on_brand_change(order_data[6])  # Cargar modelos de la marca
+        self.combo_brand.set(order_data[6])
+        self.combo_model.set(order_data[7])
+        self.var_model.set(order_data[7])
+        self.var_serial.set(order_data[8])
         
         # Extraer falla de la observación
-        obs_completa = order_data[8]
+        obs_completa = order_data[9]
         if "|" in obs_completa:
             partes = obs_completa.split("|", 1)
             falla = partes[0].replace("FALLA:", "").strip()
@@ -1542,9 +1583,9 @@ class ReceptionFrame(ctk.CTkFrame):
         self.var_risky.set(bool(order_data[11]))
         
         # Presupuesto, Descuento y Abono
-        self.var_price.set(str(int(order_data[12])))
-        self.var_discount.set(str(int(order_data[13])) if order_data[13] else "0")
-        self.var_deposit.set(str(int(order_data[14])) if order_data[14] else "0")
+        self.var_price.set(str(int(order_data[14])))  # presupuesto_inicial en [14]
+        self.var_discount.set(str(int(order_data[18])) if order_data[18] else "0")  # descuento en [18]
+        self.var_deposit.set(str(int(order_data[20])) if order_data[20] else "0")  # abono en [20]
         
         # Cargar técnico asignado
         tech_id = order_data[2]
@@ -1988,11 +2029,31 @@ class ReceptionFrame(ctk.CTkFrame):
                             traceback.print_exc()
                     
                     if messagebox.askyesno("ORDEN GUARDADA", f"ORDEN #{oid} GENERADA EXITOSAMENTE.\n\n¿DESEA IMPRIMIR EL TICKET AHORA?"):
+                        print(f"\n[RECEPTION] Usuario solicitó imprimir ticket para orden #{oid}")
                         full_data = self.logic.orders.get_ticket_data(oid)
-                        if full_data: 
+                        
+                        if full_data:
+                            print(f"[RECEPTION] Datos obtenidos de la orden:")
+                            print(f"[RECEPTION]   - Longitud de datos: {len(full_data)}")
+                            print(f"[RECEPTION]   - ID Orden: {full_data[0]}")
+                            print(f"[RECEPTION]   - Cliente: {full_data[18] if len(full_data) > 18 else 'N/A'}")  # nombre en [18]
+                            
                             pdf = PDFGeneratorV2(self.logic)
                             filepath = pdf.generar_orden_ingreso(full_data)
-                            pdf.abrir_pdf(filepath)
+                            
+                            if filepath:
+                                print(f"[RECEPTION] PDF generado correctamente, intentando abrir...")
+                                exito = pdf.abrir_pdf(filepath)
+                                if not exito:
+                                    print(f"[RECEPTION] ⚠️ No se pudo abrir automáticamente")
+                                    messagebox.showwarning("PDF Generado", 
+                                        f"El PDF se generó correctamente pero no se pudo abrir automáticamente.\n\nUbicación: {filepath}")
+                            else:
+                                print(f"[RECEPTION] ❌ Error: No se pudo generar el PDF")
+                                messagebox.showerror("Error", "No se pudo generar el PDF del ticket.")
+                        else:
+                            print(f"[RECEPTION] ❌ Error: No se pudieron obtener los datos de la orden #{oid}")
+                            messagebox.showerror("Error", "No se pudieron obtener los datos de la orden.")
                     
                     self.clear_client_form()
                     for w in self.scroll_results.winfo_children(): w.destroy()

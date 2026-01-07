@@ -26,7 +26,7 @@ class PREDICCION_VENTAS:
             
             # Obtener ventas diarias
             ventas_diarias = self.db.fetch_all(
-                "SELECT DATE(fecha), SUM(presupuesto) FROM ordenes WHERE DATE(fecha) >= ? GROUP BY DATE(fecha) ORDER BY fecha ASC",
+                "SELECT DATE(fecha_entrada), SUM(presupuesto_inicial) FROM ordenes WHERE DATE(fecha_entrada) >= ? GROUP BY DATE(fecha_entrada) ORDER BY fecha_entrada ASC",
                 (fecha_inicio,)
             )
             
@@ -101,9 +101,9 @@ class PREDICCION_VENTAS:
             
             ventas_semanales = self.db.fetch_all(
                 """
-                SELECT STRFTIME('%Y-W%W', fecha) as semana, SUM(presupuesto) 
+                SELECT STRFTIME('%Y-W%W', fecha_entrada) as semana, SUM(presupuesto_inicial) 
                 FROM ordenes 
-                WHERE DATE(fecha) >= ? 
+                WHERE DATE(fecha_entrada) >= ? 
                 GROUP BY semana 
                 ORDER BY semana ASC
                 """,
@@ -155,9 +155,9 @@ class PREDICCION_VENTAS:
             
             ventas_mensuales = self.db.fetch_all(
                 """
-                SELECT STRFTIME('%Y-%m', fecha) as mes, SUM(presupuesto) 
+                SELECT STRFTIME('%Y-%m', fecha_entrada) as mes, SUM(presupuesto_inicial) 
                 FROM ordenes 
-                WHERE DATE(fecha) >= ? 
+                WHERE DATE(fecha_entrada) >= ? 
                 GROUP BY mes 
                 ORDER BY mes ASC
                 """,
@@ -201,7 +201,7 @@ class PREDICCION_VENTAS:
             # Ventas por mes (todos los años)
             ventas_por_mes = self.db.fetch_all(
                 """
-                SELECT STRFTIME('%m', fecha) as mes, SUM(presupuesto) as total, COUNT(*) as cantidad
+                SELECT STRFTIME('%m', fecha_entrada) as mes, SUM(presupuesto_inicial) as total, COUNT(*) as cantidad
                 FROM ordenes
                 GROUP BY mes
                 ORDER BY mes ASC
@@ -267,7 +267,7 @@ class PREDICCION_VENTAS:
             mes_anterior = (datetime.now() - timedelta(days=30)).strftime("%Y-%m-01")
             
             cobranza = self.db.fetch_one(
-                "SELECT SUM(presupuesto), SUM(abono) FROM ordenes WHERE DATE(fecha) >= ?",
+                "SELECT SUM(presupuesto_inicial), SUM(abono) FROM ordenes WHERE DATE(fecha_entrada) >= ?",
                 (mes_anterior,)
             )
             

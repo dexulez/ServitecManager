@@ -1,0 +1,366 @@
+================================================================================
+                INSTRUCCIONES PASO A PASO - EJECUCIÓN SEGURA
+                      Para Realizar la Migración
+================================================================================
+
+ANTES DE EMPEZAR:
+  ✓ Haz backup manual de SERVITEC.DB en otro lugar
+  ✓ Cierra ServitecManager (la aplicación)
+  ✓ Lee GARANTIAS_SEGURIDAD_EXPLICITAS.txt
+  ✓ Revisa data_migration_executor.py (especialmente _validar_seguridad)
+
+================================================================================
+                          PASO 1: PREPARAR AMBIENTE
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 20-30 minutos
+RIESGO: BAJO (solo copia datos, no modifica)
+REVERSIBLE: SÍ (elimina SERVITEC_TEST.DB si existe y empieza de nuevo)
+
+INSTRUCCIONES:
+
+1. Abre PowerShell o Command Prompt
+2. Navega al directorio de proyecto:
+   
+   cd c:\Users\Usuario\Documents\ServitecManager
+
+3. Asegúrate que el ambiente virtual está activado:
+   
+   .venv\Scripts\activate
+
+4. Ejecuta el preparador de ambiente:
+   
+   python test_migration_env.py --full
+
+5. Observa la salida. Debería mostrar:
+   
+   ✓ BD original encontrada
+   ✓ BD temporal creada
+   ✓ Esquema optimizado creado
+   ✓ Validaciones completadas
+
+6. Si todo OK, continúa a PASO 2
+
+7. Si hay error, revisa:
+   - ¿Existe SERVITEC.DB?
+   - ¿Existe database_schema_optimized.sql?
+   - ¿Suficiente espacio en disco?
+
+ARCHIVOS CREADOS:
+  - servitec_manager/SERVITEC_TEST.DB
+  - servitec_manager/SERVITEC_TEST_OPTIMIZED.DB
+  - reporte_test_env.txt
+
+
+════════════════════════════════════════════════════════════════════════════════
+                      PASO 2: VALIDAR PREPARACIÓN
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 5-10 minutos
+RIESGO: NINGUNO (solo lectura)
+REVERSIBLE: SÍ (no toca datos)
+
+INSTRUCCIONES:
+
+1. En MISMO PowerShell, ejecuta:
+   
+   python validation_suite.py --db servitec_manager/SERVITEC_TEST.DB --full
+
+2. Observa la salida. Debería mostrar:
+   
+   ✓ Integridad Referencial OK
+   ✓ Sumas Financieras OK
+   ✓ Stock OK (o N/A si vacío)
+   ✓ Datos Históricos preservados
+
+3. Si hay ERRORES:
+   - Revisa validation_report.txt
+   - Busca sección "ERRORES"
+   - PARA AQUÍ y contáctame
+
+4. Si hay ADVERTENCIAS (warnings):
+   - Esto es NORMAL en datos incompletos
+   - Anota qué dice la advertencia
+   - Continúa a PASO 3
+
+5. Si TODO OK:
+   - Anota timestamp (para referencia)
+   - Continúa a PASO 3
+
+ARCHIVOS GENERADOS:
+  - validation_report.txt
+
+
+════════════════════════════════════════════════════════════════════════════════
+                     PASO 3: REVISAR CÓDIGO CRÍTICO
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 10-15 minutos
+RIESGO: NINGUNO (lectura solamente)
+REVERSIBLE: SÍ (no toca datos)
+
+INSTRUCCIONES:
+
+1. Abre archivo: data_migration_executor.py
+
+2. Busca y LEE COMPLETO la sección: _validar_seguridad()
+   Líneas aproximadamente ~95-125
+
+3. Verifica que entiendas:
+   ✓ Compara HASH de ambas BDs
+   ✓ Si son iguales, DETIENE
+   ✓ Rechaza si BD prueba es copia del original
+
+4. Busca y LEE la sección: conectar_bases_datos()
+   Líneas aproximadamente ~200-210
+
+5. Verifica que entiendas:
+   ✓ prod_conn = LECTURA SOLO (?mode=ro)
+   ✓ test_conn = LECTURA/ESCRITURA normal
+
+6. Busca y LEE la sección: migrar_*()
+   Líneas aproximadamente ~280-400
+
+7. Verifica que entiendas:
+   ✓ Cada método es independiente
+   ✓ Si uno falla, detiene
+   ✓ No continúa pasos siguientes
+
+8. Cuando confíes en el código:
+   Continúa a PASO 4
+
+NOTA: Si hay algo que NO entiendas:
+  PARA AQUÍ y preguntame antes de continuar
+
+
+════════════════════════════════════════════════════════════════════════════════
+                     PASO 4: EJECUTAR MIGRACIÓN
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 15-30 minutos
+RIESGO: BAJO (BD original está read-only, prueba tiene backup)
+REVERSIBLE: SÍ (backup automatizado disponible)
+
+INSTRUCCIONES:
+
+1. En MISMO PowerShell, ejecuta:
+   
+   python data_migration_executor.py --migrate-phase-2
+
+2. El script mostrará:
+   
+   ================================================================
+   ADVERTENCIA: OPERACIÓN IRREVERSIBLE
+   ================================================================
+   
+   BD de PRUEBA: servitec_manager/SERVITEC_TEST.DB
+   Acepta migración de datos históricos
+   
+   Esta operación será registrada completamente
+   
+   Responde 'si' para continuar
+   
+   ¿Autorizar migración? (si/no):
+
+3. Lee COMPLETO lo que dice
+
+4. Si estás seguro, ESCRIBE:
+   
+   si
+   
+   (MINÚSCULAS, sin "S" solamente, sin tildes)
+
+5. PRESIONA ENTER
+
+6. El script empezará a ejecutarse. Verás:
+   
+   [HORA] [INFO] INICIANDO MIGRACIÓN DE DATOS - FASE 2
+   [HORA] [INFO] [PASO 1] Migrando tabla usuarios...
+   [HORA] [INFO]   [OK] X registros migrados
+   [HORA] [INFO] [PASO 2] Migrando tabla clientes...
+   ... (etc)
+
+7. ESPERA a que termine. Puede tomar 5-15 minutos.
+
+8. Cuando termine, verás:
+   
+   [HORA] [INFO] Migración completada exitosamente
+   [HORA] [INFO] Reporte guardado en: migration_report.txt
+
+9. Si TODO OK: Continúa a PASO 5
+
+10. Si HAY ERROR antes de terminar:
+    - DETIENE automáticamente
+    - Muestra línea: Backup disponible en: ...
+    - Puedes recuperar con: cp [backup] SERVITEC_TEST.DB
+    - Luego contactame
+
+ARCHIVOS GENERADOS:
+  - migration_executor.log (auditoría completa)
+  - migration_report.txt (resumen)
+  - SERVITEC_TEST.DB.backup_YYYYMMDD_HHMMSS (para rollback)
+
+
+════════════════════════════════════════════════════════════════════════════════
+                      PASO 5: VALIDAR MIGRACIÓN
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 10-15 minutos
+RIESGO: NINGUNO (solo lectura)
+REVERSIBLE: SÍ (no modifica datos)
+
+INSTRUCCIONES:
+
+1. En MISMO PowerShell, ejecuta:
+   
+   python validation_suite.py --db servitec_manager/SERVITEC_TEST.DB --full
+
+2. Observa la salida cuidadosamente
+
+3. Compara con PASO 2:
+   - ¿Cantidad de registros cambió?
+   - ¿Integridad sigue siendo OK?
+   - ¿Nuevas advertencias?
+
+4. Si TODO OK:
+   ✓ Migración completada exitosamente
+   ✓ SERVITEC_TEST.DB con datos migrados
+   ✓ SERVITEC.DB completamente intacta
+
+5. Si hay ERRORES:
+   - Revisa validation_report.txt
+   - Busca sección ERRORES
+   - Anota exactamente qué dice
+   - PARA AQUÍ y contáctame
+
+ARCHIVOS GENERADOS:
+  - validation_report.txt (nuevo)
+
+
+════════════════════════════════════════════════════════════════════════════════
+                    PASO 6: VERIFICAR PRODUCCIÓN INTACTA
+════════════════════════════════════════════════════════════════════════════════
+
+TIEMPO: 5 minutos
+RIESGO: NINGUNO (lectura solamente)
+REVERSIBLE: SÍ (no toca datos)
+
+INSTRUCCIONES:
+
+1. Verifica que SERVITEC.DB NO cambió:
+   
+   En tu explorador de archivos, ve a:
+   c:\Users\Usuario\Documents\ServitecManager\servitec_manager\
+   
+   Busca archivo: SERVITEC.DB
+   
+   Anota la fecha de ÚLTIMA MODIFICACIÓN
+
+2. Compara con cuándo empezaste PASO 4:
+   
+   ¿La fecha es la MISMA?
+   → OK, no fue modificada
+   
+   ¿La fecha cambió?
+   → ERROR, contactame inmediatamente
+
+3. Para mayor seguridad, abre PowerShell y ejecuta:
+   
+   dir servitec_manager\SERVITEC.DB
+   
+   Anota la fecha/hora que aparece
+
+4. Compara con tu backup manual:
+   
+   Abre el backup que hiciste al principio
+   ¿Son EXACTAMENTE iguales en tamaño?
+
+5. Si SERVITEC.DB está intacta:
+   ✓ Migración exitosa y segura
+   ✓ Producción nunca fue tocada
+
+
+════════════════════════════════════════════════════════════════════════════════
+                           PRÓXIMOS PASOS
+════════════════════════════════════════════════════════════════════════════════
+
+Si TODO está OK (Paso 5 y 6):
+
+OPCIÓN A: Esperar más instrucciones
+  - Contactame
+  - Mostraré cómo proceder a Phase 3
+  - (Actualizar código Python para nuevo schema)
+
+OPCIÓN B: Revisar datos migrados
+  - Abre SERVITEC_TEST.DB en SQLite Browser
+  - Revisa que los datos se ven correctos
+  - Compara con original
+
+OPCIÓN C: Experimentar en BD de prueba
+  - Usa SERVITEC_TEST.DB para testear
+  - Es seguro, siempre puedes recuperar del backup
+  - Aprende cómo funciona el nuevo schema
+
+
+════════════════════════════════════════════════════════════════════════════════
+                         RECUPERACIÓN EN CASO DE ERROR
+════════════════════════════════════════════════════════════════════════════════
+
+Si algo falla en PASO 4:
+
+OPCIÓN 1: Rollback rápido
+  
+  1. En PowerShell:
+     cd c:\Users\Usuario\Documents\ServitecManager\servitec_manager
+  
+  2. Lista backups disponibles:
+     dir SERVITEC_TEST.DB.backup_*
+  
+  3. Recupera el más reciente:
+     copy SERVITEC_TEST.DB.backup_YYYYMMDD_HHMMSS SERVITEC_TEST.DB
+     (Reemplaza YYYYMMDD_HHMMSS con el real)
+  
+  4. Vuelves a estado pre-migración
+  
+  5. Vuelve a PASO 2 (validación)
+
+OPCIÓN 2: Crear BD de prueba desde cero
+  
+  1. Elimina archivos de prueba:
+     del SERVITEC_TEST.DB
+     del SERVITEC_TEST.DB.backup_*
+     del SERVITEC_TEST_OPTIMIZED.DB
+  
+  2. Vuelve a PASO 1 (preparar)
+  
+  3. Repite desde el principio
+
+OPCIÓN 3: Contactarme
+  
+  Si no puedes recuperar:
+  - Cierre el archivo: migration_executor.log
+  - Envíame migration_report.txt
+  - Envíame validation_report.txt
+  - Describa exactamente qué pasó
+  - Será investigado y resuelto
+
+
+════════════════════════════════════════════════════════════════════════════════
+
+                          ¿LISTO PARA EMPEZAR?
+
+Cuando hayas leído TODO este documento:
+
+1. Ejecuta PASO 1:
+   python test_migration_env.py --full
+
+2. Espera confirmación
+
+3. Ejecuta PASO 2:
+   python validation_suite.py --db servitec_manager/SERVITEC_TEST.DB --full
+
+4. Cuando TODO esté OK, avísame
+
+5. Procederemos juntos con PASO 3 en adelante
+
+════════════════════════════════════════════════════════════════════════════════

@@ -79,48 +79,71 @@ class HistoryFrame(ctk.CTkFrame):
         data = self.logic.reports.get_full_history_orders()
 
         filter_txt = filter_txt.upper()
-        ESTADOS = ['En proceso', 'Reparado', 'Sin Solución', 'Entregado', 'Pendiente']
+        ESTADOS = ['Pendiente', 'En Proceso', 'Reparado', 'Entregado', 'Sin solución']
+        CONDICIONES = ['PENDIENTE', 'SOLUCIONADO', 'SIN SOLUCIÓN']
         for row in data:
-            # 0:id, 1:fecha, 2:cliente, 3:equipo, 4:tecnico, 5:estado, 6:observacion, 7:fecha_entrega, 8:saldo_pendiente, 9:fecha_cierre
+            # Índices: 0:ID, 1:FECHA, 2:CLIENTE, 3:EQUIPO, 4:TÉCNICO, 5:OBSERVACIONES, 6:ESTADO, 7:CONDICIÓN, 8:F.ENTREGA, 9:TOTAL
             oid = row[0]
             # Filtros
-            if self.filtro_estado and row[5] != self.filtro_estado:
+            if self.filtro_estado and row[6] != self.filtro_estado:
                 continue
             if filter_txt and (filter_txt not in str(row[0]) and filter_txt not in str(row[2] or "") and filter_txt not in str(row[3])): continue
 
             f = ctk.CTkFrame(self.scroll_orders, **Theme.get_card_style()); f.pack(fill="x", pady=2)
+            # ID
             ctk.CTkLabel(f, text=f"#{row[0]}", width=50, text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
-            ctk.CTkLabel(f, text=row[1][:10], width=70, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            # FECHA
+            ctk.CTkLabel(f, text=row[1][:10] if row[1] else "-", width=70, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            # CLIENTE
             ctk.CTkLabel(f, text=row[2] or "---", width=200, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            # EQUIPO
             ctk.CTkLabel(f, text=row[3], width=170, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
+            # TÉCNICO
             ctk.CTkLabel(f, text=row[4] or "---", width=90, text_color=Theme.TEXT_SECONDARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
             
-            # Observaciones (completas, multilinea si es necesario)
-            obs_raw = row[6] or "-"
+            # OBSERVACIONES
+            obs_raw = row[5] or "-"
             obs_clean = obs_raw.replace("FALLA: |", "").replace("FALLA:", "").replace("|", "").strip()
             ctk.CTkLabel(f, text=obs_clean, width=390, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="nw", wraplength=380, justify="left").pack(side="left", padx=3)
 
-            # Estado (ComboBox editable)
-            estado_var = ctk.StringVar(value=row[5])
+            # ESTADO (ComboBox editable)
+            estado_var = ctk.StringVar(value=row[6])
             estado_cb = ctk.CTkComboBox(f, values=ESTADOS, variable=estado_var, width=120)
             estado_cb.pack(side="left", padx=3, pady=4)
 
             # Evento de cambio de estado
-            def on_estado_change(choice, oid=oid):
-                # Guardar en base de datos
+            def on_estado_change(choice, oid=oid, cond_cb=None):
                 self.logic.orders.ACTUALIZAR_ESTADO(oid, choice)
+                # Si cambia a Entregado, habilitar selector de condición
+                if choice == 'Entregado' and cond_cb:
+                    cond_cb.configure(state="normal")
                 if self.app_ref:
                     self.app_ref.refresh_all_frames()
 
-            estado_cb.configure(command=on_estado_change)
+            # CONDICIÓN (ComboBox)
+            condicion_var = ctk.StringVar(value=row[7] if row[7] else "PENDIENTE")
+            condicion_cb = ctk.CTkComboBox(f, values=CONDICIONES, variable=condicion_var, width=130, state="readonly" if row[6] != 'Entregado' else "normal")
+            condicion_cb.pack(side="left", padx=3, pady=4)
             
-            # Fecha de entrega
-            fecha_ent = row[7][:10] if row[7] else "-"
+            # Evento de cambio de condición
+            def on_condicion_change(choice, oid=oid):
+                self.logic.orders.ACTUALIZAR_CONDICION(oid, choice)
+                # Si es SIN SOLUCIÓN, poner total_a_cobrar y abono en 0
+                if choice == 'SIN SOLUCIÓN':
+                    self.logic.orders.ANULAR_COBRO_ORDEN(oid)
+                if self.app_ref:
+                    self.app_ref.refresh_all_frames()
+            
+            condicion_cb.configure(command=on_condicion_change)
+            estado_cb.configure(command=lambda choice, oid=oid, cb=condicion_cb: on_estado_change(choice, oid, cb))
+            
+            # F. ENTREGA
+            fecha_ent = row[8][:10] if row[8] else "-"
             ctk.CTkLabel(f, text=fecha_ent, width=100, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11), anchor="w").pack(side="left", padx=3)
 
-            # Saldo pendiente
-            saldo = f"${int(row[8]):,}".replace(",", ".") if row[8] else "$0"
-            ctk.CTkLabel(f, text=saldo, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
+            # TOTAL
+            total = f"${int(row[9]):,}".replace(",", ".") if row[9] else "$0"
+            ctk.CTkLabel(f, text=total, width=80, text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 11, "bold"), anchor="w").pack(side="left", padx=3)
 
             # Botón ver
             ctk.CTkButton(f, text="👁️", width=80, height=30, **Theme.get_button_style("secondary"), command=lambda oid=row[0]: self.show_order_detail(oid)).pack(side="left", padx=3)

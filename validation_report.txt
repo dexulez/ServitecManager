@@ -1,0 +1,32 @@
+================================================================================
+REPORTE DE VALIDACI N DE MIGRACI N
+================================================================================
+Fecha: 2025-12-18T13:08:21.826659
+Base de datos: servitec_manager/SERVITEC_TEST_OPTIMIZED.DB
+
+RESULTADOS:
+
+RESUMEN:
+  OK: 4 validaciones
+  INFO: 1 validaciones
+
+DETALLE:
+
+[OK] Integridad Referencial
+  Mensaje: Todas las FK constraints son v lidas
+
+[OK] Sumas Financieras
+  Mensaje: Transacciones registradas correctamente
+
+[OK] Stock Negativo
+  Mensaje: Todos los stocks son positivos
+
+  Datos Hist ricos
+  Mensaje: Registros contados por tabla
+
+[OK] Relaciones de Datos
+  Mensaje: Validaci n de relaciones completada
+
+================================================================================
+FIN DEL REPORTE
+================================================================================

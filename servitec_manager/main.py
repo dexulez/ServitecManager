@@ -82,11 +82,7 @@ def EJECUTAR_MIGRACIONES():
                     if 'duplicate' not in str(e).lower():
                         print(f"⚠️ Error agregando {col_nombre}: {e}")
         
-        # Si la tabla tiene la columna 'presupuesto' pero no 'presupuesto_inicial', copiar datos
-        if 'presupuesto' in columnas_actuales and 'presupuesto_inicial' in columnas_actuales:
-            cursor.execute("UPDATE ordenes SET presupuesto_inicial = presupuesto WHERE presupuesto_inicial = 0 OR presupuesto_inicial IS NULL")
-            cursor.execute("UPDATE ordenes SET total_a_cobrar = presupuesto_inicial - COALESCE(descuento, 0) WHERE total_a_cobrar = 0")
-            print("✅ Datos migrados de presupuesto a presupuesto_inicial")
+        # Código de migración obsoleto eliminado (schema ya actualizado)
         
         conn.commit()
         
