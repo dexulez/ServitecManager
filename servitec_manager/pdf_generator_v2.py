@@ -272,17 +272,17 @@ class PDFGeneratorV2:
             c.setFillColor(self.COLOR_TEXTO)
             c.drawString(equipo_x + 3*mm, y_contenido, "EQUIPO:")
             c.setFont("Helvetica", 10)
-            equipo_tipo = str(orden_data[4] or "")
-            equipo_marca = str(orden_data[5] or "")
-            equipo_modelo = str(orden_data[6] or "")
-            equipo_nombre = f"{equipo_tipo} {equipo_marca} {equipo_modelo}".upper()[:30]
+            equipo_tipo = str(orden_data[5] or "")  # [5] = equipo
+            equipo_marca = str(orden_data[6] or "")  # [6] = marca
+            equipo_modelo = str(orden_data[7] or "")  # [7] = modelo
+            equipo_nombre = f"{equipo_tipo} {equipo_marca} {equipo_modelo}".upper()[:45]
             c.drawString(equipo_x + 25*mm, y_contenido, equipo_nombre)
         
             y_contenido -= 3.35*mm
             c.setFont("Helvetica-Bold", 10)
             c.drawString(equipo_x + 3*mm, y_contenido, "SERIE/IMEI:")
             c.setFont("Helvetica", 10)
-            equipo_serie = str(orden_data[7] or "")[:27]
+            equipo_serie = str(orden_data[8] or "")[:27]  # [8] = serie
             c.drawString(equipo_x + 25*mm, y_contenido, equipo_serie)
         
             y_contenido -= 3.35*mm
@@ -352,7 +352,7 @@ class PDFGeneratorV2:
             # Texto de falla (aumentar fuente de 8 a 9)
             c.setFont("Helvetica", 9)
             c.setFillColor(self.COLOR_TEXTO)
-            falla_texto = str(orden_data[8] or "").upper()
+            falla_texto = str(orden_data[9] or "").upper()  # [9] = observacion
             
             # Eliminar el prefijo "FALLA:" si existe
             if falla_texto.startswith("FALLA:"):
