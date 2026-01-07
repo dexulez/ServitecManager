@@ -1001,7 +1001,7 @@ class GESTOR_ORDENES:
         if isinstance(accesorios, list): accesorios_str = ", ".join(accesorios)
         else: accesorios_str = ", ".join([k for k, v in accesorios.items() if v])
         obs_completa = f"FALLA: {falla.upper()} | {obs.upper()}"
-        return self.bd.EJECUTAR_CONSULTA("INSERT INTO ordenes (cliente_id, tecnico_id, fecha, equipo, marca, modelo, serie, observacion, estado, accesorios, riesgoso, presupuesto, descuento, abono, fecha_entrega) VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, ?, ?)", (cid, tid, tipo.upper(), marca.upper(), modelo.upper(), serie.upper(), obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, descuento, abono, fecha_entrega))
+        return self.bd.EJECUTAR_CONSULTA("INSERT INTO ordenes (cliente_id, tecnico_id, fecha_entrada, equipo, marca, modelo, serie, observacion, estado, accesorios, riesgoso, presupuesto_inicial, descuento, abono, fecha_entrega) VALUES (?, ?, datetime('now'), ?, ?, ?, ?, ?, 'Pendiente', ?, ?, ?, ?, ?, ?)", (cid, tid, tipo.upper(), marca.upper(), modelo.upper(), serie.upper(), obs_completa, accesorios_str.upper(), 1 if riesgoso else 0, presupuesto, descuento, abono, fecha_entrega))
     def ACTUALIZAR_ESTADO(self, orden_id, estado, condicion=None):
         if condicion is not None:
             return self.bd.EJECUTAR_CONSULTA("UPDATE ordenes SET estado = ?, condicion = ? WHERE id = ?", (estado, condicion, orden_id))

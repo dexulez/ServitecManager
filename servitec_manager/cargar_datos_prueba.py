@@ -151,9 +151,12 @@ def poblar_base_datos():
         costo_repuestos = (10000 + i * 1000) if i < 4 else 0
         costo_envio = 2000 if i % 2 == 0 and i < 4 else 0
         
+        # Fecha de entrega estimada: 3 días después de la entrada
+        fecha_entrega_estimada = (fecha_base + timedelta(days=3)).strftime("%Y-%m-%d")
+        
         ordenes.append((
             cliente_id, tecnico_id, fecha_entrada, equipo, marca, modelo, serie,
-            falla, estado, accesorios_str, 0, presupuesto, abono, "2025-12-25", condicion,
+            falla, estado, accesorios_str, 0, presupuesto, abono, fecha_entrega_estimada, condicion,
             costo_repuestos, costo_envio, fecha_cierre
         ))
     
