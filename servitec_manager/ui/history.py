@@ -584,11 +584,11 @@ class HistoryFrame(ctk.CTkFrame):
                     font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"),
                     text_color=Theme.WARNING).pack(anchor="w", padx=10, pady=(5, 10))
         
-        add_metric(metrics_frame, "  📦 Costo Repuestos:", -total_costo_repuestos, Theme.DANGER)
-        add_metric(metrics_frame, "  🚚 Costo Envío:", -total_costo_envio, Theme.DANGER)
-        add_metric(metrics_frame, "  💳 Comisiones Bancarias:", -total_comision_banco, Theme.DANGER)
-        add_metric(metrics_frame, "  🏷️ IVA (19% incluido):", -iva_incluido, Theme.DANGER)
-        add_metric(metrics_frame, "  🎁 Descuentos Aplicados:", -total_descuentos, Theme.DANGER)
+        add_metric(metrics_frame, "  📦 Costo Repuestos:", -total_costo_repuestos, Theme.ERROR)
+        add_metric(metrics_frame, "  🚚 Costo Envío:", -total_costo_envio, Theme.ERROR)
+        add_metric(metrics_frame, "  💳 Comisiones Bancarias:", -total_comision_banco, Theme.ERROR)
+        add_metric(metrics_frame, "  🏷️ IVA (19% incluido):", -iva_incluido, Theme.ERROR)
+        add_metric(metrics_frame, "  🎁 Descuentos Aplicados:", -total_descuentos, Theme.ERROR)
         
         total_deducciones = total_costo_repuestos + total_costo_envio + total_comision_banco + iva_incluido + total_descuentos
         
@@ -609,7 +609,7 @@ class HistoryFrame(ctk.CTkFrame):
         
         comision_neta_tecnico = total_comision_bruta - comision_banco_tecnico
         
-        add_metric(metrics_frame, "  💳 (-) Comisiones Bancarias Técnico:", -comision_banco_tecnico, Theme.DANGER)
+        add_metric(metrics_frame, "  💳 (-) Comisiones Bancarias Técnico:", -comision_banco_tecnico, Theme.ERROR)
         
         ctk.CTkFrame(metrics_frame, height=3, fg_color=Theme.PRIMARY).pack(fill="x", padx=10, pady=10)
         
@@ -681,7 +681,7 @@ class HistoryFrame(ctk.CTkFrame):
             # COSTOS
             costos = (orden[5] or 0) + (orden[6] or 0)
             ctk.CTkLabel(orden_frame, text=f"-${int(costos):,}".replace(",", "."), width=80,
-                        text_color=Theme.DANGER, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
+                        text_color=Theme.ERROR, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
             
             # COMISIÓN
             comision = orden[8] or 0
