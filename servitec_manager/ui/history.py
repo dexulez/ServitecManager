@@ -25,13 +25,16 @@ class HistoryFrame(ctk.CTkFrame):
         self.tabview.pack(fill="both", expand=True, padx=10, pady=10)
         self.tab_orders = self.tabview.add("ÓRDENES DE SERVICIO")
         self.tab_sales = self.tabview.add("VENTAS DE PRODUCTOS")
+        self.tab_commissions = self.tabview.add("💰 COMISIONES TÉCNICO")
         
         self.setup_orders_tab()
         self.setup_sales_tab()
+        self.setup_commissions_tab()
 
     def refresh(self):
         self.load_orders()
         self.load_sales()
+        self.load_commissions()
     
     def set_filtro(self, estado):
         """Establecer filtro de estado para las órdenes"""
@@ -426,3 +429,266 @@ class HistoryFrame(ctk.CTkFrame):
             error_msg = f"Error al cargar detalles:\n{str(e)}\n\n{traceback.format_exc()}"
             ctk.CTkLabel(win, text=error_msg, font=("Arial", 10), text_color="red", wraplength=450, justify="left").pack(padx=20, pady=20)
             print(error_msg)
+
+    def setup_commissions_tab(self):
+        """Tab para calcular comisiones y gastos de técnicos"""
+        # Filtros superiores
+        top = ctk.CTkFrame(self.tab_commissions, fg_color="transparent")
+        top.pack(fill="x", pady=10, padx=10)
+        
+        # Selector de técnico
+        ctk.CTkLabel(top, text="Técnico:", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), 
+                    text_color=Theme.TEXT_PRIMARY).pack(side="left", padx=(0, 5))
+        
+        # Obtener lista de técnicos
+        tecnicos = self.logic.bd.OBTENER_TODOS("SELECT id, nombre, comision FROM usuarios WHERE rol IN ('Técnico', 'Admin')")
+        self.tecnicos_map = {f"{t[1]} ({t[2]}%)": t[0] for t in tecnicos}
+        
+        self.var_tecnico = ctk.StringVar(value=list(self.tecnicos_map.keys())[0] if self.tecnicos_map else "")
+        combo_tecnico = ctk.CTkComboBox(top, values=list(self.tecnicos_map.keys()), 
+                                       variable=self.var_tecnico, width=250, height=40,
+                                       border_color=Theme.BORDER, button_color=Theme.PRIMARY)
+        combo_tecnico.pack(side="left", padx=5)
+        
+        # Filtro por fecha
+        ctk.CTkLabel(top, text="Desde:", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), 
+                    text_color=Theme.TEXT_PRIMARY).pack(side="left", padx=(20, 5))
+        self.var_fecha_desde = ctk.StringVar(value="2026-01-01")
+        entry_desde = ctk.CTkEntry(top, textvariable=self.var_fecha_desde, width=120, height=40,
+                                   border_color=Theme.BORDER)
+        entry_desde.pack(side="left", padx=5)
+        
+        ctk.CTkLabel(top, text="Hasta:", font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"), 
+                    text_color=Theme.TEXT_PRIMARY).pack(side="left", padx=(10, 5))
+        self.var_fecha_hasta = ctk.StringVar(value="2026-12-31")
+        entry_hasta = ctk.CTkEntry(top, textvariable=self.var_fecha_hasta, width=120, height=40,
+                                   border_color=Theme.BORDER)
+        entry_hasta.pack(side="left", padx=5)
+        
+        # Botón calcular
+        ctk.CTkButton(top, text="📊 CALCULAR", command=self.load_commissions, width=140, height=40,
+                     **Theme.get_button_style("success")).pack(side="left", padx=10)
+        
+        # Contenedor principal con scroll
+        self.scroll_commissions = ctk.CTkScrollableFrame(self.tab_commissions, fg_color="transparent")
+        self.scroll_commissions.pack(fill="both", expand=True, padx=10, pady=10)
+        
+        # Cargar datos inicialmente
+        self.load_commissions()
+    
+    def load_commissions(self):
+        """Cargar y calcular comisiones del técnico seleccionado"""
+        # Limpiar contenedor
+        for w in self.scroll_commissions.winfo_children():
+            w.destroy()
+        
+        if not self.var_tecnico.get() or self.var_tecnico.get() not in self.tecnicos_map:
+            ctk.CTkLabel(self.scroll_commissions, text="⚠️ Seleccione un técnico", 
+                        font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_H2), 
+                        text_color=Theme.WARNING).pack(pady=50)
+            return
+        
+        tecnico_id = self.tecnicos_map[self.var_tecnico.get()]
+        fecha_desde = self.var_fecha_desde.get()
+        fecha_hasta = self.var_fecha_hasta.get()
+        
+        # Consulta para obtener órdenes cerradas del técnico en el rango de fechas
+        query = """
+        SELECT 
+            o.id,
+            o.fecha_cierre,
+            c.nombre AS cliente,
+            o.equipo || ' ' || o.marca || ' ' || o.modelo AS equipo_completo,
+            o.total_a_cobrar,
+            o.costo_total_repuestos,
+            o.costo_envio,
+            o.descuento,
+            o.comision_tecnico,
+            o.utilidad_bruta,
+            o.pago_efectivo,
+            o.pago_transferencia,
+            o.pago_debito,
+            o.pago_credito
+        FROM ordenes o
+        LEFT JOIN clientes c ON o.cliente_id = c.id
+        WHERE o.tecnico_id = ?
+          AND o.estado = 'Entregado'
+          AND o.fecha_cierre IS NOT NULL
+          AND o.fecha_cierre >= ?
+          AND o.fecha_cierre <= ?
+        ORDER BY o.fecha_cierre DESC
+        """
+        
+        ordenes = self.logic.bd.OBTENER_TODOS(query, (tecnico_id, fecha_desde, fecha_hasta))
+        
+        if not ordenes:
+            ctk.CTkLabel(self.scroll_commissions, 
+                        text="📭 No hay órdenes cerradas en el período seleccionado", 
+                        font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_H2), 
+                        text_color=Theme.TEXT_SECONDARY).pack(pady=50)
+            return
+        
+        # ============= RESUMEN GENERAL =============
+        resumen_frame = ctk.CTkFrame(self.scroll_commissions, **Theme.get_card_style())
+        resumen_frame.pack(fill="x", pady=(0, 20))
+        
+        ctk.CTkLabel(resumen_frame, text="💰 RESUMEN FINANCIERO", 
+                    font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_H1, "bold"),
+                    text_color=Theme.PRIMARY).pack(pady=15)
+        
+        # Calcular totales
+        total_facturado = sum(o[4] or 0 for o in ordenes)
+        total_costo_repuestos = sum(o[5] or 0 for o in ordenes)
+        total_costo_envio = sum(o[6] or 0 for o in ordenes)
+        total_descuentos = sum(o[7] or 0 for o in ordenes)
+        total_comision_bruta = sum(o[8] or 0 for o in ordenes)
+        total_utilidad_tienda = sum(o[9] or 0 for o in ordenes)
+        
+        # Calcular comisiones bancarias (suponer 2.5% para tarjetas)
+        total_pago_efectivo = sum(o[10] or 0 for o in ordenes)
+        total_pago_transferencia = sum(o[11] or 0 for o in ordenes)
+        total_pago_debito = sum(o[12] or 0 for o in ordenes)
+        total_pago_credito = sum(o[13] or 0 for o in ordenes)
+        
+        # Comisiones bancarias aproximadas
+        comision_banco_debito = total_pago_debito * 0.015  # 1.5% débito
+        comision_banco_credito = total_pago_credito * 0.025  # 2.5% crédito
+        comision_banco_transferencia = total_pago_transferencia * 0.005  # 0.5% transferencia
+        total_comision_banco = comision_banco_debito + comision_banco_credito + comision_banco_transferencia
+        
+        # IVA (ya incluido en total_facturado, pero mostramos cuánto es)
+        iva_incluido = total_facturado - (total_facturado / 1.19)
+        
+        # Grid de métricas
+        metrics_frame = ctk.CTkFrame(resumen_frame, fg_color=Theme.BACKGROUND_LIGHT, corner_radius=10)
+        metrics_frame.pack(fill="x", padx=15, pady=(0, 15))
+        
+        def add_metric(parent, label, valor, color=Theme.TEXT_PRIMARY, bold=False):
+            row = ctk.CTkFrame(parent, fg_color="transparent")
+            row.pack(fill="x", padx=10, pady=5)
+            
+            ctk.CTkLabel(row, text=label, anchor="w",
+                        font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold" if bold else "normal"),
+                        text_color=Theme.TEXT_SECONDARY).pack(side="left", fill="x", expand=True)
+            
+            ctk.CTkLabel(row, text=f"${int(valor):,}".replace(",", "."), anchor="e",
+                        font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_LARGE if bold else Theme.FONT_SIZE_NORMAL, "bold"),
+                        text_color=color).pack(side="right")
+        
+        add_metric(metrics_frame, "📦 Total Órdenes Completadas:", len(ordenes), Theme.PRIMARY, True)
+        add_metric(metrics_frame, "💵 Total Facturado (con IVA):", total_facturado, Theme.SUCCESS, True)
+        
+        ctk.CTkFrame(metrics_frame, height=2, fg_color=Theme.DIVIDER).pack(fill="x", padx=10, pady=10)
+        
+        ctk.CTkLabel(metrics_frame, text="🔻 DEDUCCIONES Y COSTOS:", 
+                    font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_NORMAL, "bold"),
+                    text_color=Theme.WARNING).pack(anchor="w", padx=10, pady=(5, 10))
+        
+        add_metric(metrics_frame, "  📦 Costo Repuestos:", -total_costo_repuestos, Theme.DANGER)
+        add_metric(metrics_frame, "  🚚 Costo Envío:", -total_costo_envio, Theme.DANGER)
+        add_metric(metrics_frame, "  💳 Comisiones Bancarias:", -total_comision_banco, Theme.DANGER)
+        add_metric(metrics_frame, "  🏷️ IVA (19% incluido):", -iva_incluido, Theme.DANGER)
+        add_metric(metrics_frame, "  🎁 Descuentos Aplicados:", -total_descuentos, Theme.DANGER)
+        
+        total_deducciones = total_costo_repuestos + total_costo_envio + total_comision_banco + iva_incluido + total_descuentos
+        
+        ctk.CTkFrame(metrics_frame, height=2, fg_color=Theme.DIVIDER).pack(fill="x", padx=10, pady=10)
+        
+        # Ingresos netos (después de deducciones)
+        ingreso_neto = total_facturado - total_deducciones
+        add_metric(metrics_frame, "💰 Ingreso Neto (después de costos):", ingreso_neto, Theme.SUCCESS, True)
+        
+        ctk.CTkFrame(metrics_frame, height=2, fg_color=Theme.DIVIDER).pack(fill="x", padx=10, pady=10)
+        
+        add_metric(metrics_frame, "👨‍🔧 Comisión Bruta Técnico:", total_comision_bruta, Theme.PRIMARY, True)
+        
+        # Comisión neta del técnico (descontando su parte proporcional de costos)
+        # El técnico no paga repuestos ni envío, pero sí asume parte de comisiones bancarias
+        proporcion_tecnico = total_comision_bruta / total_facturado if total_facturado > 0 else 0
+        comision_banco_tecnico = total_comision_banco * proporcion_tecnico
+        
+        comision_neta_tecnico = total_comision_bruta - comision_banco_tecnico
+        
+        add_metric(metrics_frame, "  💳 (-) Comisiones Bancarias Técnico:", -comision_banco_tecnico, Theme.DANGER)
+        
+        ctk.CTkFrame(metrics_frame, height=3, fg_color=Theme.PRIMARY).pack(fill="x", padx=10, pady=10)
+        
+        add_metric(metrics_frame, "💵 GANANCIA NETA TÉCNICO:", comision_neta_tecnico, Theme.SUCCESS, True)
+        add_metric(metrics_frame, "🏪 UTILIDAD NETA TIENDA:", total_utilidad_tienda, Theme.PRIMARY, True)
+        
+        # ============= DETALLE POR ORDEN =============
+        detalle_frame = ctk.CTkFrame(self.scroll_commissions, **Theme.get_card_style())
+        detalle_frame.pack(fill="both", expand=True)
+        
+        ctk.CTkLabel(detalle_frame, text="📋 DETALLE POR ORDEN", 
+                    font=(Theme.FONT_FAMILY, Theme.FONT_SIZE_H2, "bold"),
+                    text_color=Theme.PRIMARY).pack(pady=15)
+        
+        # Headers
+        header_frame = ctk.CTkFrame(detalle_frame, fg_color=Theme.PRIMARY, corner_radius=8)
+        header_frame.pack(fill="x", padx=15, pady=(0, 10))
+        
+        headers = [
+            ("ID", 50),
+            ("FECHA", 100),
+            ("CLIENTE", 150),
+            ("EQUIPO", 200),
+            ("TOTAL", 90),
+            ("COSTOS", 80),
+            ("COMISIÓN", 100),
+            ("VER", 80)
+        ]
+        
+        for h, w in headers:
+            ctk.CTkLabel(header_frame, text=h, width=w, 
+                        font=(Theme.FONT_FAMILY, 10, "bold"),
+                        text_color=Theme.WHITE).pack(side="left", padx=2, pady=8)
+        
+        # Contenedor de órdenes
+        ordenes_container = ctk.CTkScrollableFrame(detalle_frame, fg_color=Theme.BACKGROUND_LIGHT, 
+                                                   height=400, corner_radius=8)
+        ordenes_container.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+        
+        for orden in ordenes:
+            orden_frame = ctk.CTkFrame(ordenes_container, fg_color=Theme.SURFACE, 
+                                      corner_radius=8, border_width=1, border_color=Theme.BORDER)
+            orden_frame.pack(fill="x", pady=3, padx=2)
+            
+            # ID
+            ctk.CTkLabel(orden_frame, text=f"#{orden[0]}", width=50,
+                        text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, 10, "bold")).pack(side="left", padx=2)
+            
+            # FECHA
+            fecha = orden[1][:10] if orden[1] else "-"
+            ctk.CTkLabel(orden_frame, text=fecha, width=100,
+                        text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
+            
+            # CLIENTE
+            cliente = (orden[2] or "---")[:20]
+            ctk.CTkLabel(orden_frame, text=cliente, width=150,
+                        text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
+            
+            # EQUIPO
+            equipo = (orden[3] or "---")[:25]
+            ctk.CTkLabel(orden_frame, text=equipo, width=200,
+                        text_color=Theme.TEXT_PRIMARY, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
+            
+            # TOTAL
+            total = orden[4] or 0
+            ctk.CTkLabel(orden_frame, text=f"${int(total):,}".replace(",", "."), width=90,
+                        text_color=Theme.SUCCESS, font=(Theme.FONT_FAMILY, 10, "bold")).pack(side="left", padx=2)
+            
+            # COSTOS
+            costos = (orden[5] or 0) + (orden[6] or 0)
+            ctk.CTkLabel(orden_frame, text=f"-${int(costos):,}".replace(",", "."), width=80,
+                        text_color=Theme.DANGER, font=(Theme.FONT_FAMILY, 10)).pack(side="left", padx=2)
+            
+            # COMISIÓN
+            comision = orden[8] or 0
+            ctk.CTkLabel(orden_frame, text=f"${int(comision):,}".replace(",", "."), width=100,
+                        text_color=Theme.PRIMARY, font=(Theme.FONT_FAMILY, 10, "bold")).pack(side="left", padx=2)
+            
+            # Botón VER
+            ctk.CTkButton(orden_frame, text="👁️", width=80, height=28,
+                         **Theme.get_button_style("secondary"),
+                         command=lambda oid=orden[0]: self.show_order_detail(oid)).pack(side="left", padx=2, pady=2)
