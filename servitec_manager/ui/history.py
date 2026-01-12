@@ -441,7 +441,7 @@ class HistoryFrame(ctk.CTkFrame):
                     text_color=Theme.TEXT_PRIMARY).pack(side="left", padx=(0, 5))
         
         # Obtener lista de técnicos
-        tecnicos = self.logic.bd.OBTENER_TODOS("SELECT id, nombre, comision FROM usuarios WHERE rol IN ('Técnico', 'Admin')")
+        tecnicos = self.logic.bd.OBTENER_TODOS("SELECT id, nombre, porcentaje_comision FROM usuarios WHERE rol IN ('Técnico', 'Admin')")
         self.tecnicos_map = {f"{t[1]} ({t[2]}%)": t[0] for t in tecnicos}
         
         self.var_tecnico = ctk.StringVar(value=list(self.tecnicos_map.keys())[0] if self.tecnicos_map else "")
